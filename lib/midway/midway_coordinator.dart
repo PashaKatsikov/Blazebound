@@ -6,7 +6,6 @@ import 'outcome/arrival.dart';
 import 'rigging/push_channel.dart';
 import 'rigging/attribution_feed.dart';
 import 'rigging/keybox.dart';
-import 'rigging/cold_link.dart';
 import 'rigging/reach_probe.dart';
 import 'rigging/ruling_call.dart';
 
@@ -27,7 +26,6 @@ import 'rigging/ruling_call.dart';
 //
 //   portal (was in the WebView)
 //     ├─ no adapter       → OfflineArrival(returnsToGame: false)
-//     ├─ cold-tap URL     → PortalArrival(url, coldTap: true)
 //     ├─ fresh cached URL → PortalArrival(cachedUrl)
 //     ├─ ruling approved  → PortalArrival(freshUrl)
 //     ├─ ruling rejected but cache exists
@@ -76,8 +74,16 @@ class MidwayCoordinator {
 
     alerts.onTokenChanged = _refreshOnTokenChange;
 
-    // Cold-boot push tap always wins.
-    final String? coldTapUrl = await ColdLink.consume(keystore);
+    // Read the notification that started this process before any
+    // route decision. The URL stays in memory for this launch only.
+    try {
+      await alerts.boot();
+    } catch (_) {}
+    // Drop a URL persisted by older builds so a later launch cannot
+    // reopen the push link.
+    await keystore.stashPendingUrl(null);
+
+    final String? coldTapUrl = alerts.takeLaunchUrl();
     if (coldTapUrl != null && coldTapUrl.isNotEmpty) {
       if (!await probe.canDialOut()) {
         return const OfflineArrival(returnsToGame: false);
@@ -128,11 +134,6 @@ class MidwayCoordinator {
   ) async {
     if (!await probe.hasAdapter() || !await probe.canDialOut()) {
       return const OfflineArrival(returnsToGame: false);
-    }
-    final String? pending = await keystore.consumePendingUrl();
-    if (pending != null && pending.isNotEmpty) {
-      onProgress(1);
-      return PortalArrival(pending);
     }
     final String? cached = await keystore.cachedDestination();
     if (cached != null && !keystore.cachedDestinationExpired) {

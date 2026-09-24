@@ -82,9 +82,9 @@ final class GameArrival extends Arrival {
 
 /// Show the WebView portal at [url].
 ///
-/// [coldTap] is true only when the launch came from a cold-boot push
-/// tap — the URL is taken from the intent payload, not the cache, and
-/// the boot animation is shortened.
+/// [coldTap] is true only when this process was opened by a push tap.
+/// The URL is the one from that notification, held in memory for this
+/// launch only — it is not the cache and it is not written to disk.
 final class PortalArrival extends Arrival {
   const PortalArrival(this.url, {this.coldTap = false});
 

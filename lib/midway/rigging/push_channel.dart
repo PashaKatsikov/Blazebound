@@ -12,10 +12,11 @@ import 'net_agent.dart';
 // ============================================================
 // PUSH CHANNEL — Firebase Messaging + local notifications
 // ============================================================
-// Cold-start push taps (app killed) stash the URL in the keystore
-// so the boot pipeline picks it up on the next frame. Warm taps
-// (background/foreground) deliver via [onIncomingUrl]; those
-// URLs are one-shot and are NOT persisted.
+// A cold-start push tap (app killed) is read once via
+// getInitialMessage and kept only in memory for this process.
+// The URL is never written to disk: the next launch without a
+// tap follows the config URL, or the last cached one. Warm taps
+// deliver via [onIncomingUrl] and are also not persisted.
 //
 // [FORGE] The Android notification channel id must match the
 // `default_notification_channel_id` in AndroidManifest.xml. Rotate
@@ -43,6 +44,9 @@ class PushChannel {
   String? _token;
   bool _ready = false;
 
+  /// URL from the notification that started this process. Never stored.
+  String? _launchUrl;
+
   /// Warm-tap URL delivery — the WebView should load this directly.
   void Function(String url)? onIncomingUrl;
 
@@ -51,6 +55,14 @@ class PushChannel {
   void Function(String token)? onTokenChanged;
 
   String? get token => _token;
+
+  /// One-shot read of the cold-start notification URL. Later boots
+  /// in this process, and every later process, see null.
+  String? takeLaunchUrl() {
+    final String? url = _launchUrl;
+    _launchUrl = null;
+    return url;
+  }
 
   Future<void> boot() async {
     if (_ready) return;
@@ -182,7 +194,7 @@ class PushChannel {
   void _onColdTap(RemoteMessage message) {
     final String? url = message.data['url'] as String?;
     if (url != null && url.isNotEmpty) {
-      _keystore.stashPendingUrl(url);
+      _launchUrl = url;
     }
   }
 

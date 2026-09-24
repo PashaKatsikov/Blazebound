@@ -97,19 +97,16 @@ class KeyBox {
     return _nowSeconds() >= until;
   }
 
-  // ── One-time push URL (secure) ──────────────────────────
+  // ── Leftover push URL (secure) ──────────────────────────
+  // Older builds wrote the cold-tap URL here. New launches only
+  // delete it. A push URL must not survive the process that
+  // received the tap.
   Future<void> stashPendingUrl(String? url) async {
     if (url == null || url.isEmpty) {
       await _secure.delete(key: _kPendingUrl);
     } else {
       await _secure.write(key: _kPendingUrl, value: url);
     }
-  }
-
-  Future<String?> consumePendingUrl() async {
-    final String? url = await _secure.read(key: _kPendingUrl);
-    if (url != null) await _secure.delete(key: _kPendingUrl);
-    return url;
   }
 
   static int _nowSeconds() =>
