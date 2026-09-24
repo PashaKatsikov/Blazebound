@@ -65,6 +65,10 @@ class _PortalStageState extends State<PortalStage>
   // excludes the nav bar so the WebView width never changes when the nav bar
   // appears with the keyboard.
   EdgeInsets _cutout = EdgeInsets.zero;
+  // Keyboard height (dp) from native WindowInsets.ime(). The WebView is
+  // shrunk from the bottom by this amount so its visualViewport actually
+  // reflects the keyboard — the field then sits right above it.
+  double _ime = 0;
 
   // [FORGE] Rotate the MethodChannel name per project. Keep in
   // sync with MainActivity.kt → `channelName`.
@@ -90,7 +94,12 @@ class _PortalStageState extends State<PortalStage>
           right: (m['cutR'] as num?)?.toDouble() ?? 0,
           bottom: (m['cutB'] as num?)?.toDouble() ?? 0,
         );
-        if (cut != _cutout) setState(() => _cutout = cut);
+        if (cut != _cutout || (ime - _ime).abs() >= 0.5) {
+          setState(() {
+            _cutout = cut;
+            _ime = ime;
+          });
+        }
         WebScripts.setKeyboardHeight(_web, ime);
       }
       return null;
@@ -320,11 +329,13 @@ class _PortalStageState extends State<PortalStage>
         body: Stack(
           fit: StackFit.expand,
           children: <Widget>[
-            // Fixed camera-cutout padding (from native displayCutout). Never
-            // pads for the nav bar or the keyboard, so the WebView keeps a
-            // stable size; the nav bar overlays and the JS lifts the field.
+            // Camera-cutout padding (from native displayCutout) plus a
+            // bottom inset equal to the keyboard height. The nav bar is never
+            // included, so the WebView width is stable; only the bottom edge
+            // rises to the keyboard top, shrinking the visualViewport so the
+            // focused field ends up right above the keyboard.
             Padding(
-              padding: _cutout,
+              padding: _cutout.copyWith(bottom: _cutout.bottom + _ime),
               child: WebViewWidget(controller: _web),
             ),
             if (_spinner && !landscape)

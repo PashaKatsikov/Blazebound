@@ -127,14 +127,13 @@ const String _keyboardLift = r'''
     if (!field(el)) { spacer(0); return; }
     var kb = window.__bzKb || 0;
     spacer(kb);
-    // Visible bottom = innerHeight minus the keyboard height reported by the
-    // host (window.__bzKb). Also honour visualViewport when it DID shrink.
-    var visBottom = window.innerHeight - kb;
+    // The host shrinks the WebView by the keyboard height, so visualViewport
+    // already reflects the true visible area — trust it. Only fall back to the
+    // reported keyboard height when visualViewport is unavailable.
     var vv = window.visualViewport;
-    if (vv) visBottom = Math.min(visBottom, vv.offsetTop + vv.height);
+    var visBottom = vv ? (vv.offsetTop + vv.height) : (window.innerHeight - kb);
     var rect = el.getBoundingClientRect();
-    // Lift so the field sits just above the keyboard (only scroll up; never
-    // yank it far above the keyboard line).
+    // Lift so the field sits just above the keyboard.
     var delta = rect.bottom - (visBottom - 12);
     if (delta > 1) scrollBy(el, delta);
   };
