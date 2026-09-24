@@ -5,11 +5,12 @@ import 'package:image/image.dart' as img;
 /// Converts the Blazebound source icon (icon2_blazebound.jpg) into the PNGs
 /// consumed by flutter_launcher_icons:
 ///   • assets/generated/app_icon.png            — 1024 legacy / mask base
-///   • assets/generated/app_icon_foreground.png — adaptive foreground, art
-///     scaled to 74dp inside the 108dp adaptive layer on a transparent
-///     canvas (so the joker sits fully inside the circular mask safe zone).
-const double _canvasDp = 108;
-const double _artDp = 74;
+///   • assets/generated/app_icon_foreground.png — adaptive foreground.
+///
+/// The foreground is FULL-BLEED: flutter_launcher_icons emits the adaptive
+/// layer with `android:inset="16%"`, and 16% inset on a 108dp layer leaves
+/// ~74dp of visible art — exactly the requested adaptive size. Pre-insetting
+/// the PNG here as well would double-shrink it, so we do NOT.
 const int _canvasPx = 1024;
 
 void main() {
@@ -34,28 +35,11 @@ void main() {
     interpolation: img.Interpolation.cubic,
   );
   Directory('assets/generated').createSync(recursive: true);
-  File('assets/generated/app_icon.png').writeAsBytesSync(img.encodePng(base));
+  final List<int> png = img.encodePng(base);
+  File('assets/generated/app_icon.png').writeAsBytesSync(png);
+  // Full-bleed foreground; the adaptive XML's 16% inset yields ~74dp visible.
+  File('assets/generated/app_icon_foreground.png').writeAsBytesSync(png);
 
-  // Adaptive foreground: art at 74dp within a 108dp transparent canvas.
-  final int artPx = (_canvasPx * (_artDp / _canvasDp)).round();
-  final img.Image art = img.copyResize(
-    decoded,
-    width: artPx,
-    height: artPx,
-    interpolation: img.Interpolation.cubic,
-  );
-  final img.Image fg = img.Image(
-    width: _canvasPx,
-    height: _canvasPx,
-    numChannels: 4,
-  );
-  // Fully transparent background.
-  img.fill(fg, color: img.ColorRgba8(0, 0, 0, 0));
-  final int offset = ((_canvasPx - artPx) / 2).round();
-  img.compositeImage(fg, art, dstX: offset, dstY: offset);
-  File('assets/generated/app_icon_foreground.png')
-      .writeAsBytesSync(img.encodePng(fg));
-
-  stdout.writeln('Icons generated: legacy ${_canvasPx}px full-bleed, '
-      'adaptive fg ${artPx}px (${_artDp}dp) centred in ${_canvasPx}px canvas.');
+  stdout.writeln('Icons generated: ${_canvasPx}px full-bleed '
+      '(legacy + adaptive foreground) from $src');
 }

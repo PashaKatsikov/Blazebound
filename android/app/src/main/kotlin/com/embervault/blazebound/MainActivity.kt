@@ -2,6 +2,9 @@ package com.embervault.blazebound
 
 import android.app.Activity
 import android.content.Intent
+import android.os.Build
+import android.view.View
+import android.view.WindowInsets
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -17,8 +20,14 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     // [FORGE] Keep in sync with lib/relay/stage/portal_stage.dart → MethodChannel('...').
     private val channelName = "ember/pick"
+    // Pushes the soft-keyboard (IME) height to Dart. Read from the real
+    // WindowInsets so it is correct in landscape too, where Flutter's own
+    // viewInsets are unreliable under a fullscreen IME.
+    private val imeChannelName = "ember/ime"
     private val pickRequest = 0x7A11
     private var pendingResult: MethodChannel.Result? = null
+    private var imeChannel: MethodChannel? = null
+    private var lastImeDp = -1.0
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -32,6 +41,28 @@ class MainActivity : FlutterActivity() {
                     result.notImplemented()
                 }
             }
+
+        imeChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, imeChannelName)
+        installImeListener()
+    }
+
+    private fun installImeListener() {
+        val density = resources.displayMetrics.density
+        val root = window.decorView
+        root.setOnApplyWindowInsetsListener { v: View, insets: WindowInsets ->
+            val imePx: Int = if (Build.VERSION.SDK_INT >= 30) {
+                insets.getInsets(WindowInsets.Type.ime()).bottom
+            } else {
+                @Suppress("DEPRECATION")
+                insets.systemWindowInsetBottom
+            }
+            val imeDp: Double = (imePx / density).toDouble()
+            if (kotlin.math.abs(imeDp - lastImeDp) >= 0.5) {
+                lastImeDp = imeDp
+                imeChannel?.invokeMethod("ime", imeDp)
+            }
+            v.onApplyWindowInsets(insets)
+        }
     }
 
     private fun openChooser(

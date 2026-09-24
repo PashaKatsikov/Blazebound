@@ -61,16 +61,27 @@ class _PortalStageState extends State<PortalStage>
   int _retryCounter = 0;
   Timer? _dropDebounce;
   StreamSubscription<List<ConnectivityResult>>? _connSub;
-  double _lastIme = -1;
 
   // [FORGE] Rotate the MethodChannel name per project. Keep in
   // sync with MainActivity.kt → `channelName`.
   static const MethodChannel _uploadChannel = MethodChannel('ember/pick');
 
+  // Native IME height feed. MainActivity reads the real WindowInsets.ime()
+  // and pushes the height (dp ≈ CSS px) — reliable in landscape, unlike
+  // Flutter's viewInsets under a fullscreen IME.
+  static const MethodChannel _imeChannel = MethodChannel('ember/ime');
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _imeChannel.setMethodCallHandler((MethodCall call) async {
+      if (call.method == 'ime' && mounted) {
+        final double h = (call.arguments as num).toDouble();
+        WebScripts.setKeyboardHeight(_web, h);
+      }
+      return null;
+    });
     SystemChrome.setPreferredOrientations(const <DeviceOrientation>[
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
@@ -112,22 +123,6 @@ class _PortalStageState extends State<PortalStage>
       systemNavigationBarIconBrightness: Brightness.light,
       systemNavigationBarContrastEnforced: false,
     ));
-  }
-
-  @override
-  void didChangeMetrics() {
-    super.didChangeMetrics();
-    if (!mounted) return;
-    final view = WidgetsBinding.instance.platformDispatcher.views.firstOrNull;
-    if (view == null) return;
-    // The WebView keeps full height (resizeToAvoidBottomInset:false), so the
-    // page's visualViewport never shrinks on keyboard open. Feed the keyboard
-    // height (in CSS px ≈ logical px) into the JS so it can lift the focused
-    // field immediately — not only after the first keystroke.
-    final double kbCss = view.viewInsets.bottom / view.devicePixelRatio;
-    if ((kbCss - _lastIme).abs() < 0.5) return;
-    _lastIme = kbCss;
-    WebScripts.setKeyboardHeight(_web, kbCss);
   }
 
   @override
@@ -288,6 +283,7 @@ class _PortalStageState extends State<PortalStage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _imeChannel.setMethodCallHandler(null);
     _dropDebounce?.cancel();
     _connSub?.cancel();
     widget.alerts.onIncomingUrl = null;
