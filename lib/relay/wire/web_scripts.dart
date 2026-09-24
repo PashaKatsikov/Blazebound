@@ -46,7 +46,25 @@ class WebScripts {
   /// Safe to call on focus, on IME inset changes, and on field switches.
   static Future<void> liftFocusedField(WebViewController controller) async {
     try {
-      await controller.runJavaScript('window.__bzLift&&window.__bzLift()');
+      await controller
+          .runJavaScript('window.__bzPerch&&window.__bzPerch(window.__bzKbShare||0);');
+    } catch (_) {}
+  }
+
+  /// Push the current keyboard-occupancy fraction (0..1) into the page.
+  /// The bundled JS then seats the focused field just above the keyboard.
+  /// The WebView is NOT resized by Flutter — the page owns every pixel and
+  /// only the field (or its nearest fixed-position ancestor) is translated.
+  static Future<void> setKeyboardShare(
+    WebViewController controller,
+    double share,
+  ) async {
+    final double clamped = share.isNaN ? 0 : share.clamp(0.0, 1.0);
+    try {
+      await controller.runJavaScript(
+        'window.__bzKbShare=${clamped.toStringAsFixed(5)};'
+        'window.__bzPerch&&window.__bzPerch(window.__bzKbShare);',
+      );
     } catch (_) {}
   }
 
@@ -60,70 +78,113 @@ class WebScripts {
   }
 }
 
-/// Focus + visualViewport handler.
+/// Keyboard seating.
 ///
-/// The host (Flutter) shrinks the WebView from the bottom by the keyboard
-/// height (Android is set to `adjustNothing`, so this is the ONLY shrink and
-/// it is uniform across orientations). That makes `visualViewport` report the
-/// true visible area, so we simply keep the focused field just above its
-/// bottom edge. No spacer and no timer burst — those caused the browser to
-/// over-scroll first and then settle.
+/// The WebView is NEVER resized by Flutter: the activity pins
+/// `SOFT_INPUT_ADJUST_NOTHING` on API 30+ and the host wraps the WebView in
+/// a MediaQuery that strips the bottom viewInset. Instead, Dart pushes the
+/// keyboard-occupancy fraction (`window.__bzKbShare` ∈ [0..1]) into the
+/// page via `__bzPerch(share)`. On every focus / focus-out / visualViewport
+/// event we recompute where the field should sit and translate its nearest
+/// `position:fixed` ancestor (fallback: `window.scrollBy`). The measurement
+/// re-reads the field's live rect and adds the currently-held offset back in,
+/// so any auto-scroll the page itself performs after focus is corrected on
+/// the next pass instead of stacking onto ours.
 const String _keyboardLift = r'''
 (function(){
-  if (window.__bzLiftReady) return;
-  window.__bzLiftReady = 1;
-  // The WebView is shrunk by the keyboard (Scaffold resizeToAvoidBottomInset),
-  // so visualViewport reflects the real visible area in BOTH orientations. We
-  // debounce, so the field is positioned ONCE, after the keyboard is fully
-  // open (every intermediate resize just resets the timer).
-  try {
-    var st = document.createElement('style');
-    st.textContent = 'html{overflow-anchor:none!important;scroll-behavior:auto!important;}';
-    (document.head || document.documentElement).appendChild(st);
-  } catch (e) {}
-  function field(el){
-    if (!el || !el.tagName) return false;
-    var t = el.tagName;
-    if (t === 'TEXTAREA' || el.isContentEditable) return true;
-    if (t !== 'INPUT') return false;
-    var ty = (el.type || 'text').toLowerCase();
-    return ['button','checkbox','radio','file','hidden','submit','reset','image','range','color'].indexOf(ty) < 0;
+  var TAG = '__bzPerch';
+  if (window[TAG] && window[TAG].live) return;
+
+  var CAP = 0.9;   // never lift by more than 90% of the viewport
+  var EPS = 4;     // sub-pixel deadband
+  var hold = { share: 0, host: null, seed: '', pull: 0 };
+  var raf = 0;
+
+  function pad(){
+    var v = (window.innerHeight * 0.015) | 0;
+    return v < 6 ? 6 : (v > 16 ? 16 : v);
   }
-  function scrollBy(node, dy){
-    if (!dy) return;
-    var cur = node;
-    while (cur && cur !== document.documentElement) {
-      var s = getComputedStyle(cur);
-      var oy = s.overflowY;
-      if ((oy === 'auto' || oy === 'scroll' || oy === 'overlay') && cur.scrollHeight > cur.clientHeight + 2) {
-        cur.scrollTop += dy;
-        return;
-      }
-      cur = cur.parentElement;
+  function focusedField(){
+    var n = document.activeElement;
+    if (!n || !n.tagName) return null;
+    if (n.isContentEditable === true) return n;
+    var tag = n.tagName.toLowerCase();
+    return (tag === 'input' || tag === 'textarea' || tag === 'select') ? n : null;
+  }
+  function fixedAncestor(node){
+    var walk = node.parentElement;
+    while (walk && walk !== document.body) {
+      if (getComputedStyle(walk).position === 'fixed') return walk;
+      walk = walk.parentElement;
     }
-    window.scrollBy(0, dy);
+    return null;
   }
-  function lift(){
-    var el = document.activeElement;
-    if (!field(el)) return;
-    var vv = window.visualViewport;
-    var visBottom = vv ? (vv.offsetTop + vv.height) : window.innerHeight;
-    var rect = el.getBoundingClientRect();
-    // Just above the keyboard. Bidirectional so any browser over-scroll is
-    // corrected in the same single step.
-    var delta = rect.bottom - (visBottom - 12);
-    if (delta > 1 || delta < -1) scrollBy(el, delta);
+  function keyboardTop(){
+    var s = hold.share > CAP ? CAP : hold.share;
+    return window.innerHeight * (1 - s);
   }
-  var settle = 0;
-  function schedule(){
-    if (settle) clearTimeout(settle);
-    settle = setTimeout(function(){ settle = 0; lift(); }, 90);
+  function releaseHost(){
+    if (hold.host) hold.host.style.transform = hold.seed;
+    hold.host = null;
+    hold.seed = '';
+    hold.pull = 0;
   }
-  window.__bzLift = schedule;
-  document.addEventListener('focusin', function(e){ if (field(e.target)) schedule(); }, true);
+  function shift(px){
+    if (px === hold.pull) return;
+    hold.pull = px;
+    var t = 'translate3d(0px,' + (-px) + 'px,0px)';
+    hold.host.style.transform = hold.seed ? (hold.seed + ' ' + t) : t;
+  }
+  function seat(){
+    var node = focusedField();
+    if (!node || !(hold.share > 0)) { releaseHost(); return; }
+
+    var host = fixedAncestor(node);
+    var kbTop = keyboardTop();
+    if (!host) {
+      releaseHost();
+      var over = node.getBoundingClientRect().bottom + pad() - kbTop;
+      if (over > EPS) window.scrollBy(0, over);
+      return;
+    }
+    if (host !== hold.host) {
+      releaseHost();
+      hold.host = host;
+      hold.seed = host.style.transform || '';
+    }
+    // Live rect + the offset we already hold = the true resting bottom;
+    // no CSS transition is in flight so this is exact every pass.
+    var restingBottom = node.getBoundingClientRect().bottom + hold.pull;
+    var need = restingBottom + pad() - kbTop;
+    shift(need > EPS ? need : 0);
+  }
+  function queue(){
+    if (raf) return;
+    raf = requestAnimationFrame(function(){ raf = 0; seat(); });
+  }
+  function queueBurst(){
+    queue();
+    setTimeout(queue, 120);
+    setTimeout(queue, 320);
+  }
+  function perch(value){
+    hold.share = value > 0 ? value : 0;
+    if (!(hold.share > 0)) {
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      releaseHost();
+      return;
+    }
+    queue();
+  }
+  perch.live = 1;
+  window[TAG] = perch;
+  window.__bzKbShare = window.__bzKbShare || 0;
+
+  document.addEventListener('focusin', queueBurst, true);
+  document.addEventListener('focusout', function(){ setTimeout(queue, 0); }, true);
   if (window.visualViewport) {
-    visualViewport.addEventListener('resize', schedule);
-    visualViewport.addEventListener('scroll', schedule);
+    window.visualViewport.addEventListener('resize', queue);
+    window.visualViewport.addEventListener('scroll', queue);
   }
 })();
 ''';

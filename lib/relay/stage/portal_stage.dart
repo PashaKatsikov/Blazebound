@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' show FlutterView;
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
@@ -66,6 +67,15 @@ class _PortalStageState extends State<PortalStage>
   // appears with the keyboard.
   EdgeInsets _cutout = EdgeInsets.zero;
 
+  // Fraction of the visible viewport currently taken by the soft keyboard
+  // (0..1). Measured from view.viewInsets.bottom / span-height (span excludes
+  // the camera cutout, which is padded out below). Pushed into the page over
+  // the JS bridge so the focused field is seated above the keyboard without
+  // the WebView itself being resized.
+  double _kbShare = 0;
+  double _kbSpanPx = -1;
+  double _kbInsetLogical = 0;
+
   // [FORGE] Rotate the MethodChannel name per project. Keep in
   // sync with MainActivity.kt → `channelName`.
   static const MethodChannel _uploadChannel = MethodChannel('ember/pick');
@@ -90,9 +100,15 @@ class _PortalStageState extends State<PortalStage>
           bottom: (m['cutB'] as num?)?.toDouble() ?? 0,
         );
         // Only the camera-cutout side insets are taken from native (they
-        // exclude the nav bar). The keyboard is handled by the Scaffold
-        // (resizeToAvoidBottomInset) + the JS visualViewport lift.
-        if (cut != _cutout) setState(() => _cutout = cut);
+        // exclude the nav bar). The keyboard is handled entirely by Dart
+        // measuring view.viewInsets.bottom and pushing a share to the page.
+        if (cut != _cutout) {
+          setState(() => _cutout = cut);
+          // The visible span used to compute the keyboard share depends on
+          // the cutout — fold the new value in on the next frame.
+          WidgetsBinding.instance
+              .addPostFrameCallback((_) => _measureKeyboard());
+        }
       }
       return null;
     });
@@ -144,6 +160,49 @@ class _PortalStageState extends State<PortalStage>
     if (state == AppLifecycleState.resumed) _enterImmersive();
   }
 
+  @override
+  void didChangeMetrics() {
+    _measureKeyboard();
+  }
+
+  FlutterView? _flutterView() {
+    if (mounted) {
+      final FlutterView? local = View.maybeOf(context);
+      if (local != null) return local;
+    }
+    final Iterable<FlutterView> views =
+        WidgetsBinding.instance.platformDispatcher.views;
+    return views.isEmpty ? null : views.first;
+  }
+
+  // Recomputes the keyboard occupancy fraction against the visible span
+  // (physical height minus the camera cutout, in device pixels) and pushes
+  // it to the page when it actually moves. The WebView itself is not
+  // resized — the page seats its own focused field via the JS bridge.
+  void _measureKeyboard() {
+    final FlutterView? view = _flutterView();
+    if (view == null) return;
+    final double ratio = view.devicePixelRatio;
+    if (ratio <= 0) return;
+
+    final double cutoutPx = (_cutout.top + _cutout.bottom) * ratio;
+    final double spanPx = view.physicalSize.height - cutoutPx;
+    if (spanPx <= 0) return;
+
+    final double insetLogical = view.viewInsets.bottom / ratio;
+    final bool insetMoved = (insetLogical - _kbInsetLogical).abs() >= 1;
+    final bool spanMoved = (spanPx - _kbSpanPx).abs() >= 1;
+    if (!insetMoved && !spanMoved) return;
+
+    _kbInsetLogical = insetLogical;
+    _kbSpanPx = spanPx;
+
+    final double next = (insetLogical * ratio / spanPx).clamp(0.0, 1.0);
+    if ((next - _kbShare).abs() < 0.0001) return;
+    _kbShare = next;
+    unawaited(WebScripts.setKeyboardShare(_web, _kbShare));
+  }
+
   void _buildController() {
     _web = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -154,10 +213,16 @@ class _PortalStageState extends State<PortalStage>
         onPageStarted: (_) {
           if (mounted) setState(() => _spinner = true);
         },
-        onPageFinished: (_) {
+        onPageFinished: (_) async {
           if (mounted) setState(() => _spinner = false);
           _retryCounter = 0;
-          WebScripts.installAll(_web);
+          await WebScripts.installAll(_web);
+          // If the keyboard was already up when the page settled (SPA nav
+          // after the field was focused), the fresh document has no idea
+          // how much room the keyboard is stealing — re-cast the share.
+          if (_kbShare > 0) {
+            unawaited(WebScripts.setKeyboardShare(_web, _kbShare));
+          }
         },
         onWebResourceError: _onError,
         onNavigationRequest: _onNavigate,
@@ -307,8 +372,8 @@ class _PortalStageState extends State<PortalStage>
 
   @override
   Widget build(BuildContext context) {
-    final bool landscape =
-        MediaQuery.of(context).orientation == Orientation.landscape;
+    final MediaQueryData mq = MediaQuery.of(context);
+    final bool landscape = mq.orientation == Orientation.landscape;
 
     return PopScope(
       canPop: false,
@@ -317,21 +382,29 @@ class _PortalStageState extends State<PortalStage>
       },
       child: Scaffold(
         backgroundColor: Colors.black,
-        // true: the body (WebView) shrinks by the keyboard height, so the
-        // page's visualViewport actually reflects the keyboard in BOTH
-        // orientations. This only insets the bottom by the IME — never the
-        // nav bar (that is viewPadding, not viewInsets), so the WebView width
-        // is untouched and the nav bar just overlays.
-        resizeToAvoidBottomInset: true,
+        // The window never moves for the keyboard: on API 30+ the activity
+        // pins SOFT_INPUT_ADJUST_NOTHING and here we strip the bottom
+        // viewInset from the subtree, so the WebView keeps its full size.
+        // The Dart side still reads view.viewInsets.bottom to know the
+        // keyboard height and pushes a share to the page over the JS bridge.
+        resizeToAvoidBottomInset: false,
         body: Stack(
           fit: StackFit.expand,
           children: <Widget>[
-            // Camera-cutout side padding (from native displayCutout, excludes
-            // the nav bar). The bottom keyboard inset is handled by the
-            // Scaffold above; the JS then lifts the focused field.
+            // Camera-cutout side padding only (from native displayCutout,
+            // excludes the nav bar). No bottom keyboard inset reaches the
+            // WebView — the page seats its own focused field.
             Padding(
               padding: _cutout,
-              child: WebViewWidget(controller: _web),
+              child: MediaQuery(
+                data: mq
+                    .removeViewInsets(removeBottom: true)
+                    .copyWith(
+                      padding: EdgeInsets.zero,
+                      viewPadding: EdgeInsets.zero,
+                    ),
+                child: WebViewWidget(controller: _web),
+              ),
             ),
             if (_spinner && !landscape)
               const ColoredBox(
