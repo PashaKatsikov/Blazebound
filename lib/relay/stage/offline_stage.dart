@@ -47,12 +47,11 @@ class _OfflineStageState extends State<OfflineStage> {
       body: ArenaBackdrop(
         asset: landscape ? Paths.loadH : Paths.loadV,
         dim: 0.62,
-        child: SafeArea(
-          child: Stack(
-            fit: StackFit.expand,
-            children: <Widget>[
-              const SparkleField(),
-              Center(
+        child: Stack(
+          fit: StackFit.expand,
+          children: <Widget>[
+            const SparkleField(),
+            Center(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: panelW.clamp(260, 560)),
                   child: GoldFrame(
@@ -108,7 +107,6 @@ class _OfflineStageState extends State<OfflineStage> {
               ),
             ],
           ),
-        ),
       ),
     );
   }

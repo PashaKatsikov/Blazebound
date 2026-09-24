@@ -78,12 +78,11 @@ class _PermissionStageState extends State<PermissionStage> {
       body: ArenaBackdrop(
         asset: landscape ? Paths.loadH : Paths.loadV,
         dim: 0.6,
-        child: SafeArea(
-          child: Stack(
-            fit: StackFit.expand,
-            children: <Widget>[
-              const SparkleField(),
-              Center(
+        child: Stack(
+          fit: StackFit.expand,
+          children: <Widget>[
+            const SparkleField(),
+            Center(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: panelW.clamp(280, 600)),
                   child: GoldFrame(
@@ -138,7 +137,6 @@ class _PermissionStageState extends State<PermissionStage> {
               ),
             ],
           ),
-        ),
       ),
     );
   }

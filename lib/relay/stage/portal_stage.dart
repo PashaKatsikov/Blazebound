@@ -120,10 +120,14 @@ class _PortalStageState extends State<PortalStage>
     if (!mounted) return;
     final view = WidgetsBinding.instance.platformDispatcher.views.firstOrNull;
     if (view == null) return;
-    final double ime = view.viewInsets.bottom / view.devicePixelRatio;
-    if (ime == _lastIme) return;
-    _lastIme = ime;
-    if (ime > 0) WebScripts.liftFocusedField(_web);
+    // The WebView keeps full height (resizeToAvoidBottomInset:false), so the
+    // page's visualViewport never shrinks on keyboard open. Feed the keyboard
+    // height (in CSS px ≈ logical px) into the JS so it can lift the focused
+    // field immediately — not only after the first keystroke.
+    final double kbCss = view.viewInsets.bottom / view.devicePixelRatio;
+    if ((kbCss - _lastIme).abs() < 0.5) return;
+    _lastIme = kbCss;
+    WebScripts.setKeyboardHeight(_web, kbCss);
   }
 
   @override
@@ -307,7 +311,14 @@ class _PortalStageState extends State<PortalStage>
         body: Stack(
           fit: StackFit.expand,
           children: <Widget>[
-            WebViewWidget(controller: _web),
+            // Keep the WebView out of the camera cutout on all four edges,
+            // but never pad for the keyboard (viewInsets) — the IME overlays
+            // the page and the JS scrolls the focused field into view.
+            SafeArea(
+              bottom: false,
+              maintainBottomViewPadding: false,
+              child: WebViewWidget(controller: _web),
+            ),
             if (_spinner && !landscape)
               const ColoredBox(
                 color: Color(0x80000000),

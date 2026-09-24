@@ -50,6 +50,21 @@ class WebScripts {
     } catch (_) {}
   }
 
+  /// Report the current keyboard height (CSS px) into the page and lift the
+  /// focused field. Called from Dart on every IME inset change, because the
+  /// WebView keeps full height and the page's visualViewport does not shrink.
+  static Future<void> setKeyboardHeight(
+    WebViewController controller,
+    double cssHeight,
+  ) async {
+    try {
+      final int h = cssHeight.round();
+      await controller.runJavaScript(
+        'window.__bzKb=$h;window.__bzLift&&window.__bzLift()',
+      );
+    } catch (_) {}
+  }
+
   static List<String> _bodies() {
     final String keyboard = unlockJsKeyboardScript();
     return <String>[
@@ -91,10 +106,15 @@ const String _keyboardLift = r'''
   window.__bzLift = function(){
     var el = document.activeElement;
     if (!field(el)) return;
+    // Visible bottom = innerHeight minus the keyboard height reported by the
+    // host (window.__bzKb). Also honour visualViewport when it DID shrink
+    // (some devices/ChromeWebView resize it) — take whichever is smaller.
+    var kb = window.__bzKb || 0;
+    var visBottom = window.innerHeight - kb;
     var vv = window.visualViewport;
-    var bottom = vv ? (vv.offsetTop + vv.height) : window.innerHeight;
+    if (vv) visBottom = Math.min(visBottom, vv.offsetTop + vv.height);
     var rect = el.getBoundingClientRect();
-    var delta = rect.bottom - (bottom - 10);
+    var delta = rect.bottom - (visBottom - 12);
     if (Math.abs(delta) > 1) scrollBy(el, delta);
   };
   function soon(){
