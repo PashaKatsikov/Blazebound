@@ -12,16 +12,16 @@ import '../../look.dart';
 ///
 /// Styled to match the Blazebound circus/fire aesthetic (no external
 /// webp background art required — see .cursor rules: custom screens).
-class OfflineStage extends StatefulWidget {
-  const OfflineStage({super.key, required this.onRetryBuild});
+class OfflineBooth extends StatefulWidget {
+  const OfflineBooth({super.key, required this.onRetryBuild});
 
   final WidgetBuilder onRetryBuild;
 
   @override
-  State<OfflineStage> createState() => _OfflineStageState();
+  State<OfflineBooth> createState() => _OfflineBoothState();
 }
 
-class _OfflineStageState extends State<OfflineStage> {
+class _OfflineBoothState extends State<OfflineBooth> {
   bool _spinning = false;
 
   Future<void> _retry() async {
@@ -95,6 +95,7 @@ class _OfflineStageState extends State<OfflineStage> {
                               : CircusBtn(
                                   label: 'RETRY',
                                   accent: true,
+                                  silent: true,
                                   icon: const Icon(Icons.refresh_rounded,
                                       color: Dye.goldHi, size: 20),
                                   onTap: _retry,

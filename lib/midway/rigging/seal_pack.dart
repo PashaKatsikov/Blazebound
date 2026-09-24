@@ -5,9 +5,9 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 
 // ============================================================
-// VEIL PACK — verdict-request envelope (mirrors the edge relay)
+// SEAL PACK — ruling-request envelope (mirrors the edge relay)
 // ============================================================
-// The verdict endpoint (decoded from the veil codec at call time) is a
+// The ruling endpoint (decoded from the veil codec at call time) is a
 // Cloudflare-fronted relay that only accepts an opaque envelope, unpacks
 // it, and forwards the clean attribution JSON to the partner upstream.
 // A plain-JSON POST is answered with a 404 decoy.
@@ -29,8 +29,8 @@ import 'package:crypto/crypto.dart';
 // re-forge (rotating the codec salt) does not corrupt the secret.
 // ============================================================
 
-class VeilPack {
-  VeilPack._();
+class SealPack {
+  SealPack._();
 
   // [RELAY] Project-unique envelope shape. Keep in sync with the relay.
   static const int _schemaRev = 17;

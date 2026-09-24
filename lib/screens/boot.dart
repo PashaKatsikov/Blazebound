@@ -6,15 +6,15 @@ import 'package:flutter/services.dart';
 
 import '../art.dart';
 import '../look.dart';
-import '../relay/config/relay_config.dart';
-import '../relay/core/landing.dart';
-import '../relay/relay_coordinator.dart';
-import '../relay/stage/offline_stage.dart';
-import '../relay/stage/permission_stage.dart';
-import '../relay/stage/portal_stage.dart';
-import '../relay/wire/alert_channel.dart';
-import '../relay/wire/beacon_keystore.dart';
-import '../relay/wire/pulse_probe.dart';
+import '../midway/brief/midway_brief.dart';
+import '../midway/outcome/arrival.dart';
+import '../midway/midway_coordinator.dart';
+import '../midway/booth/offline_booth.dart';
+import '../midway/booth/permission_booth.dart';
+import '../midway/booth/portal_booth.dart';
+import '../midway/rigging/push_channel.dart';
+import '../midway/rigging/keybox.dart';
+import '../midway/rigging/reach_probe.dart';
 import 'menu.dart';
 
 // ============================================================
@@ -25,7 +25,7 @@ import 'menu.dart';
 // progress SOURCE changed: the bar now tracks the relay decision, and,
 // on the native-game branch, the game-art warmup.
 //
-//   • decision phase  → bar 0.04 .. 0.60  (RelayCoordinator.decide)
+//   • decision phase  → bar 0.04 .. 0.60  (MidwayCoordinator.decide)
 //   • game-art phase  → bar 0.60 .. 1.00  (Art.I.load, game branch only)
 //
 // The bar never freezes at 100% before the route is actually pushed.
@@ -39,9 +39,9 @@ class BootScreen extends StatefulWidget {
     required this.alerts,
   });
 
-  final RelayCoordinator coordinator;
-  final BeaconKeystore keystore;
-  final AlertChannel alerts;
+  final MidwayCoordinator coordinator;
+  final KeyBox keystore;
+  final PushChannel alerts;
 
   @override
   State<BootScreen> createState() => _BootScreenState();
@@ -122,9 +122,9 @@ class _BootScreenState extends State<BootScreen> {
   }
 
   Future<void> _drive() async {
-    final bool gameWithoutNet = !RelayConfig.credentialsReady ||
-        widget.keystore.route == RouteMemory.native;
-    if (!gameWithoutNet && !await PulseProbe().canDialOut()) {
+    final bool gameWithoutNet = !MidwayBrief.credentialsReady ||
+        widget.keystore.route == RouteState.native;
+    if (!gameWithoutNet && !await ReachProbe().canDialOut()) {
       _goOffline();
       return;
     }
@@ -132,21 +132,21 @@ class _BootScreenState extends State<BootScreen> {
     setState(() => _loader = true);
     _armTick();
 
-    final Landing outcome = await widget.coordinator.decide(
+    final Arrival outcome = await widget.coordinator.decide(
       onProgress: _checkpoint,
     );
     if (!mounted || _landed) return;
 
-    if (outcome is OfflineLanding) {
+    if (outcome is OfflineArrival) {
       _goOffline();
       return;
     }
 
     _landed = true;
     final Widget next = switch (outcome) {
-      GameLanding() => await _buildGameLanding(),
-      PortalLanding(url: final String url) => _buildPortalLanding(url),
-      OfflineLanding() => _offline(),
+      GameArrival() => await _buildGameLanding(),
+      PortalArrival(url: final String url) => _buildPortalLanding(url),
+      OfflineArrival() => _offline(),
     };
     if (!mounted) return;
     await _fillAndGo(next);
@@ -168,13 +168,13 @@ class _BootScreenState extends State<BootScreen> {
   Widget _buildPortalLanding(String url) {
     _checkpoint(1);
     if (widget.keystore.shouldInvitePermission) {
-      return PermissionStage(
+      return PermissionBooth(
         keystore: widget.keystore,
         alerts: widget.alerts,
         destinationUrl: url,
       );
     }
-    return PortalStage(
+    return PortalBooth(
       url: url,
       keystore: widget.keystore,
       alerts: widget.alerts,
@@ -182,7 +182,7 @@ class _BootScreenState extends State<BootScreen> {
   }
 
   Widget _offline() {
-    return OfflineStage(
+    return OfflineBooth(
       onRetryBuild: (_) => BootScreen(
         coordinator: widget.coordinator,
         keystore: widget.keystore,

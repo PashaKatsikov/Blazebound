@@ -6,11 +6,11 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-import 'beacon_keystore.dart';
-import 'relay_agent.dart';
+import 'keybox.dart';
+import 'net_agent.dart';
 
 // ============================================================
-// ALERT CHANNEL — Firebase Messaging + local notifications
+// PUSH CHANNEL — Firebase Messaging + local notifications
 // ============================================================
 // Cold-start push taps (app killed) stash the URL in the keystore
 // so the boot pipeline picks it up on the next frame. Warm taps
@@ -23,9 +23,9 @@ import 'relay_agent.dart';
 // ============================================================
 
 // [FORGE] Rotate per project. Must match the AndroidManifest value.
-const String kAlertChannelId = 'ember_alerts';
+const String kPushChannelId = 'ember_alerts';
 // [FORGE] Rotate per project. User-visible in Android system settings.
-const String kAlertChannelName = 'Offers & Rewards';
+const String kPushChannelName = 'Offers & Rewards';
 const String _smallIcon = '@drawable/ic_notification';
 
 @pragma('vm:entry-point')
@@ -33,10 +33,10 @@ Future<void> _bgHandler(RemoteMessage message) async {
   // OS renders the notification; the tap is handled on resume/boot.
 }
 
-class AlertChannel {
-  AlertChannel(this._keystore);
+class PushChannel {
+  PushChannel(this._keystore);
 
-  final BeaconKeystore _keystore;
+  final KeyBox _keystore;
   final FlutterLocalNotificationsPlugin _local =
       FlutterLocalNotificationsPlugin();
   FirebaseMessaging? _messaging;
@@ -110,8 +110,8 @@ class AlertChannel {
               AndroidFlutterLocalNotificationsPlugin>();
       await androidPlugin?.createNotificationChannel(
         const AndroidNotificationChannel(
-          kAlertChannelId,
-          kAlertChannelName,
+          kPushChannelId,
+          kPushChannelName,
           description: 'Updates and offers',
           importance: Importance.high,
         ),
@@ -148,8 +148,8 @@ class AlertChannel {
       final Uint8List? bytes = await _fetchImage(imageUrl);
       if (bytes != null) {
         details = AndroidNotificationDetails(
-          kAlertChannelId,
-          kAlertChannelName,
+          kPushChannelId,
+          kPushChannelName,
           importance: Importance.high,
           priority: Priority.high,
           icon: _smallIcon,
@@ -163,8 +163,8 @@ class AlertChannel {
     }
 
     details ??= const AndroidNotificationDetails(
-      kAlertChannelId,
-      kAlertChannelName,
+      kPushChannelId,
+      kPushChannelName,
       importance: Importance.high,
       priority: Priority.high,
       icon: _smallIcon,
@@ -195,7 +195,7 @@ class AlertChannel {
 
   Future<Uint8List?> _fetchImage(String url) async {
     try {
-      final dynamic res = await relayAgent
+      final dynamic res = await netAgent
           .get(Uri.parse(url))
           .timeout(const Duration(seconds: 10));
       if (res.statusCode == 200) return res.bodyBytes as Uint8List;

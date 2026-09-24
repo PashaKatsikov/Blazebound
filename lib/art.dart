@@ -3,14 +3,14 @@ import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 
 class Paths {
-  static const extra = 'assets/Blazebound_additional_assets';
-  static const play = 'assets/Blazebound_gameplay_assets';
-  static const snd = 'assets/Blazebound_sounds_assets';
+  static const extra = 'assets/marquee_art';
+  static const play = 'assets/bigtop_sheets';
+  static const snd = 'assets/calliope_sfx';
 
-  static const logo = '$extra/Game_Name.webp';
-  static const loadH = '$extra/Horizontal_Loading_Screen.webp';
-  static const loadV = '$extra/Vertical_Loading_Screen.webp';
-  static const icon = '$extra/Icon.png';
+  static const logo = '$extra/wordmark.webp';
+  static const loadH = '$extra/load_wide.webp';
+  static const loadV = '$extra/load_tall.webp';
+  static const icon = '$extra/title_mark.png';
 
   // Sheets came labeled backwards for the two leads. Use the pictures, not the names.
   static const joker = '$play/Inferno_Ringmaster_asset.webp';
@@ -148,7 +148,7 @@ class Art {
       try {
         final data = await rootBundle.load(path);
         final bytes = data.buffer.asUint8List();
-        final wide = path.contains('Background') || path.contains('Loading');
+        final wide = path.contains('Background') || path.contains('load_');
         final codec = await ui.instantiateImageCodec(
           bytes,
           targetWidth: wide ? 1280 : 960,

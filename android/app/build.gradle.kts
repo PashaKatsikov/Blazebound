@@ -24,7 +24,7 @@ if (keystorePropertiesFile.exists()) {
 android {
     namespace = "com.embervault.blazebound"
 
-    // targetSdk = 35, minSdk = 26 (Android 8.0), compileSdk = 36 for plugin
+    // targetSdk = 36, minSdk = 26 (Android 8.0), compileSdk = 36 for plugin
     // compatibility (see gray_part_pitfalls.md §2/§19).
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
@@ -39,7 +39,7 @@ android {
     defaultConfig {
         applicationId = "com.embervault.blazebound"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

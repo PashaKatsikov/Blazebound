@@ -1,11 +1,11 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../config/relay_config.dart';
-import '../core/landing.dart';
+import '../brief/midway_brief.dart';
+import '../outcome/arrival.dart';
 
 // ============================================================
-// BEACON KEYSTORE — persisted state (prefs + secure storage)
+// KEYBOX — persisted state (prefs + secure storage)
 // ============================================================
 // Plain booleans and timestamps live in SharedPreferences; URLs
 // live in the platform's encrypted secure storage. Every key
@@ -21,8 +21,8 @@ import '../core/landing.dart';
 /// [FORGE] Rotate per project. 3–5 char random ASCII, ending in `_`.
 const String _keyPrefix = 'bz7_';
 
-class BeaconKeystore {
-  BeaconKeystore({FlutterSecureStorage? secure})
+class KeyBox {
+  KeyBox({FlutterSecureStorage? secure})
       : _secure = secure ?? const FlutterSecureStorage();
 
   static const String _kRoute = '${_keyPrefix}route';
@@ -41,9 +41,9 @@ class BeaconKeystore {
   }
 
   // ── Route memory ────────────────────────────────────────
-  RouteMemory get route => RouteMemory.parse(_prefs.getString(_kRoute));
+  RouteState get route => RouteState.parse(_prefs.getString(_kRoute));
 
-  Future<void> saveRoute(RouteMemory value) =>
+  Future<void> saveRoute(RouteState value) =>
       _prefs.setString(_kRoute, value.wireValue);
 
   // ── Cached destination URL (secure) ─────────────────────
@@ -58,7 +58,7 @@ class BeaconKeystore {
       // sends no explicit `expires`.
       await _prefs.setInt(
         _kCachedExpiry,
-        _nowSeconds() + RelayConfig.cachedUrlLifetimeSeconds,
+        _nowSeconds() + MidwayBrief.cachedUrlLifetimeSeconds,
       );
     }
   }

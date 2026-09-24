@@ -52,7 +52,7 @@
   },
 
   "timings": {
-    "$comment": "See lib/relay/config/relay_config.dart for the accepted ranges. Every value must be outside the corresponding sibling's value by at least 10%.",
+    "$comment": "See lib/midway/brief/midway_brief.dart for the accepted ranges. Every value must be outside the corresponding sibling's value by at least 10%.",
     "permissionSnoozeSeconds": 259200,
     "organicRescueDelay": 7,
     "verdictTimeoutSeconds": 17,
@@ -66,7 +66,7 @@
   },
 
   "storage": {
-    "$comment": "3-5 char ASCII, ending with '_'. See lib/relay/wire/beacon_keystore.dart.",
+    "$comment": "3-5 char ASCII, ending with '_'. See lib/midway/rigging/keybox.dart.",
     "keyPrefix": "rl3_"
   },
 

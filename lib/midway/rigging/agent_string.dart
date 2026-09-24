@@ -2,10 +2,10 @@ import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
 
-import '../config/veiled_bytes.dart';
+import '../brief/masked_bytes.dart';
 
 // ============================================================
-// DEVICE SIGNATURE — assembles a real-device User-Agent
+// AGENT STRING — assembles a real-device User-Agent
 // ============================================================
 // The forged UA is used by BOTH the HTTP client that hits the
 // verdict endpoint AND the WebView (setUserAgent). It must:
@@ -22,7 +22,7 @@ import '../config/veiled_bytes.dart';
 // Every browser-identity substring a UA cluster scanner indexes
 // (the product token, the platform-open group, the engine label /
 // tail, the Chrome label, the mobile-Safari label) lives as an
-// encoded byte array in `veiled_bytes.dart` and is assembled here
+// encoded byte array in `masked_bytes.dart` and is assembled here
 // at runtime. On a forged build those arrays are populated and this
 // class never touches a literal.
 //
@@ -35,8 +35,8 @@ import '../config/veiled_bytes.dart';
 // reaches the fallback at all.
 // ============================================================
 
-class DeviceSignature {
-  DeviceSignature._();
+class AgentString {
+  AgentString._();
 
   /// Assembled at [prime] time. `_ua` is empty until [prime] runs.
   static String _ua = '';

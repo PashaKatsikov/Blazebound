@@ -4,8 +4,8 @@ import 'package:image/image.dart' as img;
 
 /// Converts the Blazebound source icon (icon2_blazebound.jpg) into the PNGs
 /// consumed by flutter_launcher_icons:
-///   • assets/generated/app_icon.png            — 1024 legacy / mask base
-///   • assets/generated/app_icon_foreground.png — adaptive foreground.
+///   • assets/icon_src/bb_launch_icon.png      — 1024 legacy / mask base
+///   • assets/icon_src/bb_launch_fg.png         — adaptive foreground.
 ///
 /// The foreground is FULL-BLEED: flutter_launcher_icons emits the adaptive
 /// layer with `android:inset="16%"`, and 16% inset on a 108dp layer leaves
@@ -14,7 +14,7 @@ import 'package:image/image.dart' as img;
 const int _canvasPx = 1024;
 
 void main() {
-  const String src = 'assets/Blazebound_additional_assets/icon2_blazebound.jpg';
+  const String src = 'assets/marquee_art/icon2_blazebound.jpg';
   final File file = File(src);
   if (!file.existsSync()) {
     stderr.writeln('Source icon not found: $src');
@@ -34,11 +34,11 @@ void main() {
     height: _canvasPx,
     interpolation: img.Interpolation.cubic,
   );
-  Directory('assets/generated').createSync(recursive: true);
+  Directory('assets/icon_src').createSync(recursive: true);
   final List<int> png = img.encodePng(base);
-  File('assets/generated/app_icon.png').writeAsBytesSync(png);
+  File('assets/icon_src/bb_launch_icon.png').writeAsBytesSync(png);
   // Full-bleed foreground; the adaptive XML's 16% inset yields ~74dp visible.
-  File('assets/generated/app_icon_foreground.png').writeAsBytesSync(png);
+  File('assets/icon_src/bb_launch_fg.png').writeAsBytesSync(png);
 
   stdout.writeln('Icons generated: ${_canvasPx}px full-bleed '
       '(legacy + adaptive foreground) from $src');

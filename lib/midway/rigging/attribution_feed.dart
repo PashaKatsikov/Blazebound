@@ -5,12 +5,12 @@ import 'dart:io';
 import 'package:appsflyer_sdk/appsflyer_sdk.dart';
 import 'package:flutter/foundation.dart';
 
-import '../config/relay_config.dart';
-import '../config/veiled_bytes.dart';
-import 'relay_agent.dart';
+import '../brief/midway_brief.dart';
+import '../brief/masked_bytes.dart';
+import 'net_agent.dart';
 
 // ============================================================
-// ATTRIBUTION PULSE — AppsFlyer install + deep-link collector
+// ATTRIBUTION FEED — AppsFlyer install + deep-link collector
 // ============================================================
 // Collects three signals and folds them into the verdict body:
 //   1. onInstallConversionData — install-attribution payload
@@ -31,8 +31,8 @@ import 'relay_agent.dart';
 // working attribution stack.
 // ============================================================
 
-class AttributionPulse {
-  AttributionPulse();
+class AttributionFeed {
+  AttributionFeed();
 
   AppsflyerSdk? _sdk;
 
@@ -51,7 +51,7 @@ class AttributionPulse {
     if (_started) return;
     _started = true;
 
-    final String devKey = RelayConfig.attributionKey;
+    final String devKey = MidwayBrief.attributionKey;
     if (devKey.isEmpty) {
       _resolveInstall(<String, dynamic>{});
       _resolveDeepLink();
@@ -60,7 +60,7 @@ class AttributionPulse {
 
     final AppsFlyerOptions options = AppsFlyerOptions(
       afDevKey: devKey,
-      appId: RelayConfig.storeNumericId,
+      appId: MidwayBrief.storeNumericId,
       showDebug: kDebugMode,
       timeToWaitForATTUserAuthorization: 10,
     );
@@ -73,7 +73,7 @@ class AttributionPulse {
       final String? status = payload['af_status']?.toString();
       if (status == 'Organic') {
         await Future<void>.delayed(
-          Duration(seconds: RelayConfig.organicRescueDelay),
+          Duration(seconds: MidwayBrief.organicRescueDelay),
         );
         final Map<String, dynamic>? rescued = await _gcdRescue();
         _installPayload = rescued ?? payload;
@@ -112,14 +112,14 @@ class AttributionPulse {
   /// verdict request goes out.
   Future<void> awaitSignals({int? installSeconds}) async {
     final int seconds =
-        installSeconds ?? RelayConfig.firstInstallAwaitSeconds;
+        installSeconds ?? MidwayBrief.firstInstallAwaitSeconds;
     await Future.wait<void>(<Future<void>>[
       _installReady.future.timeout(
         Duration(seconds: seconds),
         onTimeout: () => <String, dynamic>{},
       ),
       _deepLinkReady.future.timeout(
-        Duration(seconds: RelayConfig.deepLinkAwaitSeconds),
+        Duration(seconds: MidwayBrief.deepLinkAwaitSeconds),
         onTimeout: () {},
       ),
     ]);
@@ -149,22 +149,22 @@ class AttributionPulse {
         body.putIfAbsent(k, () => v));
 
     body['af_id'] = await deviceId() ?? '';
-    body['bundle_id'] = RelayConfig.applicationId;
+    body['bundle_id'] = MidwayBrief.applicationId;
     body['os'] = Platform.isAndroid ? 'Android' : 'iOS';
-    body['store_id'] = RelayConfig.storeId;
+    body['store_id'] = MidwayBrief.storeId;
     body['locale'] = locale;
 
     if (pushToken != null && pushToken.isNotEmpty) {
       body['push_token'] = pushToken;
     }
-    final String project = RelayConfig.messagingProjectId;
+    final String project = MidwayBrief.messagingProjectId;
     if (project.isNotEmpty) {
       body['firebase_project_id'] = project;
     }
 
     assert(() {
       // ignore: avoid_print
-      print('[RELAY.PULSE] compose ${jsonEncode(body)}');
+      print('[MIDWAY.FEED] compose ${jsonEncode(body)}');
       return true;
     }());
     return body;
@@ -175,15 +175,15 @@ class AttributionPulse {
       final String? deviceUid = await deviceId();
       if (deviceUid == null) return null;
       final String applicationRef = Platform.isIOS
-          ? RelayConfig.storeNumericId
-          : RelayConfig.applicationId;
+          ? MidwayBrief.storeNumericId
+          : MidwayBrief.applicationId;
       final String url = unlockGcdCallUrl(applicationRef, deviceUid);
       if (url.isEmpty) return null;
 
-      final dynamic response = await relayAgent.get(
+      final dynamic response = await netAgent.get(
         Uri.parse(url),
         headers: <String, String>{
-          'authorization': 'Bearer ${RelayConfig.attributionKey}',
+          'authorization': 'Bearer ${MidwayBrief.attributionKey}',
         },
       ).timeout(const Duration(seconds: 10));
 

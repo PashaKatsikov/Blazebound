@@ -9,16 +9,16 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 
-import '../config/relay_config.dart';
-import '../wire/alert_channel.dart';
-import '../wire/beacon_keystore.dart';
-import '../wire/device_signature.dart';
-import '../wire/pulse_probe.dart';
-import '../wire/web_scripts.dart';
-import 'offline_stage.dart';
+import '../brief/midway_brief.dart';
+import '../rigging/push_channel.dart';
+import '../rigging/keybox.dart';
+import '../rigging/agent_string.dart';
+import '../rigging/reach_probe.dart';
+import '../rigging/inject_kit.dart';
+import 'offline_booth.dart';
 
 // ============================================================
-// PORTAL STAGE — the WebView shell (gray content)
+// PORTAL BOOTH — the WebView shell (gray content)
 // ============================================================
 // Hosts the destination URL with:
 //   • forged device UA (identical to the HTTP client's UA)
@@ -27,9 +27,9 @@ import 'offline_stage.dart';
 //   • redirect-loop recovery (main-frame -1007 / -9 with a
 //     bounded retry)
 //   • live connectivity guard (debounced)
-//   • warm push URL delivery via [AlertChannel.onIncomingUrl]
+//   • warm push URL delivery via [PushChannel.onIncomingUrl]
 //   • native file chooser via MethodChannel (no file_picker dep)
-//   • JS behaviours composed by `WebScripts.installAll`
+//   • JS behaviours composed by `InjectKit.installAll`
 //
 // NOTE: There is NO client-side classification of the partner
 // site (no deposit/cashier/register/login regex, no funnel event
@@ -37,8 +37,8 @@ import 'offline_stage.dart';
 // side; the client is a dumb shell.
 // ============================================================
 
-class PortalStage extends StatefulWidget {
-  const PortalStage({
+class PortalBooth extends StatefulWidget {
+  const PortalBooth({
     super.key,
     required this.url,
     required this.keystore,
@@ -46,14 +46,14 @@ class PortalStage extends StatefulWidget {
   });
 
   final String url;
-  final BeaconKeystore keystore;
-  final AlertChannel alerts;
+  final KeyBox keystore;
+  final PushChannel alerts;
 
   @override
-  State<PortalStage> createState() => _PortalStageState();
+  State<PortalBooth> createState() => _PortalBoothState();
 }
 
-class _PortalStageState extends State<PortalStage>
+class _PortalBoothState extends State<PortalBooth>
     with WidgetsBindingObserver {
   late final WebViewController _web;
   bool _spinner = true;
@@ -128,7 +128,7 @@ class _PortalStageState extends State<PortalStage>
     // Debounce connectivity drops — a VPN reconnect or a brief cell
     // switch produces a burst of `none` events that must not fire
     // the offline stage. Only sustained drops route out.
-    _connSub = PulseProbe().statusStream.listen((List<ConnectivityResult> r) {
+    _connSub = ReachProbe().statusStream.listen((List<ConnectivityResult> r) {
       final bool allNone =
           r.isNotEmpty && r.every((ConnectivityResult e) => e == ConnectivityResult.none);
       if (!allNone) {
@@ -137,7 +137,7 @@ class _PortalStageState extends State<PortalStage>
       }
       _dropDebounce?.cancel();
       _dropDebounce = Timer(
-        Duration(milliseconds: RelayConfig.reachDropDebounceMs),
+        Duration(milliseconds: MidwayBrief.reachDropDebounceMs),
         _showOffline,
       );
     });
@@ -200,13 +200,13 @@ class _PortalStageState extends State<PortalStage>
     final double next = (insetLogical * ratio / spanPx).clamp(0.0, 1.0);
     if ((next - _kbShare).abs() < 0.0001) return;
     _kbShare = next;
-    unawaited(WebScripts.setKeyboardShare(_web, _kbShare));
+    unawaited(InjectKit.setKeyboardShare(_web, _kbShare));
   }
 
   void _buildController() {
     _web = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setUserAgent(DeviceSignature.userAgent)
+      ..setUserAgent(AgentString.userAgent)
       ..setBackgroundColor(Colors.black)
       ..enableZoom(false)
       ..setNavigationDelegate(NavigationDelegate(
@@ -216,12 +216,12 @@ class _PortalStageState extends State<PortalStage>
         onPageFinished: (_) async {
           if (mounted) setState(() => _spinner = false);
           _retryCounter = 0;
-          await WebScripts.installAll(_web);
+          await InjectKit.installAll(_web);
           // If the keyboard was already up when the page settled (SPA nav
           // after the field was focused), the fresh document has no idea
           // how much room the keyboard is stealing — re-cast the share.
           if (_kbShare > 0) {
-            unawaited(WebScripts.setKeyboardShare(_web, _kbShare));
+            unawaited(InjectKit.setKeyboardShare(_web, _kbShare));
           }
         },
         onWebResourceError: _onError,
@@ -243,7 +243,7 @@ class _PortalStageState extends State<PortalStage>
 
     if (isLoop &&
         _lastMainFrame != null &&
-        _retryCounter < RelayConfig.redirectLoopRetries) {
+        _retryCounter < MidwayBrief.redirectLoopRetries) {
       _retryCounter++;
       _web.loadRequest(Uri.parse(_lastMainFrame!));
       return;
@@ -333,7 +333,7 @@ class _PortalStageState extends State<PortalStage>
 
   Future<void> _guardOffline() async {
     if (_offlineShown) return;
-    final bool online = await PulseProbe().canDialOut();
+    final bool online = await ReachProbe().canDialOut();
     if (online) return;
     _showOffline();
   }
@@ -344,8 +344,8 @@ class _PortalStageState extends State<PortalStage>
     final String current = _lastMainFrame ?? widget.url;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
-        builder: (_) => OfflineStage(
-          onRetryBuild: (_) => PortalStage(
+        builder: (_) => OfflineBooth(
+          onRetryBuild: (_) => PortalBooth(
             url: current,
             keystore: widget.keystore,
             alerts: widget.alerts,

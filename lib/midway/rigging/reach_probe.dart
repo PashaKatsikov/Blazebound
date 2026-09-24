@@ -2,37 +2,37 @@ import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 
-import '../config/relay_config.dart';
+import '../brief/midway_brief.dart';
 
 // ============================================================
-// PULSE PROBE — connectivity + DNS reachability
+// REACH PROBE — connectivity + DNS reachability
 // ============================================================
 // `connectivity_plus` alone is unreliable — a captive portal, a
-// half-brought-up VPN interface, or a mobile-data cell without
-// a route all report "connected". We layer a real DNS lookup on
-// top so the pipeline never commits to online routing without a
-// working DNS path.
+// half-brought-up VPN interface, or a mobile-data cell without a
+// route all report "connected". We layer a real DNS lookup on top so
+// the pipeline never commits to online routing without a working DNS
+// path.
 //
 // [FORGE] The DNS probe rotates between two sibling hosts on each
-// call (index modulo 2). The candidate list is rotated per project
-// so no two apps share the same reachability fingerprint. Never
-// probe a partner or config-endpoint host — that would (a) log
-// traffic even before the verdict and (b) create a probe → own-host
-// correlation in traffic sniffs.
+// call (index modulo 2). The candidate list is rotated per project so
+// no two apps share the same reachability fingerprint. Never probe a
+// partner or config-endpoint host — that would (a) log traffic even
+// before the ruling and (b) create a probe → own-host correlation in
+// traffic sniffs.
 // ============================================================
 
 // [FORGE] Rotate this list per project. Two well-known, cheap-DNS
-// hosts unrelated to the partner and the config endpoint. The
-// forge picks from `apple.com`, `cloudflare.com`, `google.com`,
+// hosts unrelated to the partner and the config endpoint. The forge
+// picks from `apple.com`, `cloudflare.com`, `google.com`,
 // `microsoft.com`, `github.com`, `wikipedia.org`.
 const List<String> _probeHosts = <String>[
-  'cloudflare.com',
-  'apple.com',
+  'microsoft.com',
+  'github.com',
 ];
 
 /// Which adapters count as "up". VPN + Bluetooth + Ethernet are
-/// included — dropping any of them created false offline verdicts
-/// on real users (VPN especially — see the pitfalls doc).
+/// included — dropping any of them produced false offline verdicts on
+/// real users (VPN especially — see the pitfalls doc).
 const Set<ConnectivityResult> _liveAdapters = <ConnectivityResult>{
   ConnectivityResult.wifi,
   ConnectivityResult.mobile,
@@ -42,15 +42,15 @@ const Set<ConnectivityResult> _liveAdapters = <ConnectivityResult>{
   ConnectivityResult.other,
 };
 
-class PulseProbe {
-  PulseProbe({Connectivity? connectivity})
+class ReachProbe {
+  ReachProbe({Connectivity? connectivity})
       : _connectivity = connectivity ?? Connectivity();
 
   final Connectivity _connectivity;
   int _rotor = 0;
 
-  /// True if AT LEAST one adapter reports as live. Does NOT run a
-  /// DNS probe — use [canDialOut] for that.
+  /// True if AT LEAST one adapter reports as live. Does NOT run a DNS
+  /// probe — use [canDialOut] for that.
   Future<bool> hasAdapter() async {
     try {
       final List<ConnectivityResult> states =
@@ -67,7 +67,7 @@ class PulseProbe {
   Future<bool> canDialOut() async {
     if (!await hasAdapter()) return false;
     final Duration timeout =
-        Duration(seconds: RelayConfig.reachProbeTimeoutSeconds);
+        Duration(seconds: MidwayBrief.reachProbeTimeoutSeconds);
     for (int i = 0; i < _probeHosts.length; i++) {
       final String host = _probeHosts[(_rotor + i) % _probeHosts.length];
       try {

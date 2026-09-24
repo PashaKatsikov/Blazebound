@@ -111,6 +111,7 @@ class CircusBtn extends StatelessWidget {
     this.wide = true,
     this.accent = false,
     this.height = 52,
+    this.silent = false,
   });
 
   final String label;
@@ -120,6 +121,10 @@ class CircusBtn extends StatelessWidget {
   final bool accent;
   final double height;
 
+  /// When true, the tap does not play the click sound. Used on the
+  /// offline and notification screens, which must stay quiet.
+  final bool silent;
+
   @override
   Widget build(BuildContext context) {
     return Material(
@@ -128,7 +133,7 @@ class CircusBtn extends StatelessWidget {
         onTap: onTap == null
             ? null
             : () {
-                Sfx.I.click();
+                if (!silent) Sfx.I.click();
                 onTap!();
               },
         borderRadius: BorderRadius.circular(14),

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../art.dart';
 import '../look.dart';
 import '../profile.dart';
-import '../relay/config/legal_urls.dart';
+import '../midway/brief/policy_links.dart';
 import 'howto.dart';
 import 'web_doc.dart';
 
@@ -66,7 +66,7 @@ class OptionsScreen extends StatelessWidget {
                                 onTap: () => Navigator.of(context).push(MaterialPageRoute(
                                   builder: (_) => const WebDocScreen(
                                     title: 'PRIVACY POLICY',
-                                    url: privacyLink,
+                                    url: policyUrl,
                                     bleach: true,
                                   ),
                                 )),
@@ -77,7 +77,7 @@ class OptionsScreen extends StatelessWidget {
                                 onTap: () => Navigator.of(context).push(MaterialPageRoute(
                                   builder: (_) => const WebDocScreen(
                                     title: 'SUPPORT',
-                                    url: supportLink,
+                                    url: helpUrl,
                                   ),
                                 )),
                               ),

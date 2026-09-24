@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../art.dart';
 import '../../look.dart';
-import '../config/relay_config.dart';
-import '../wire/alert_channel.dart';
-import '../wire/beacon_keystore.dart';
-import 'portal_stage.dart';
+import '../brief/midway_brief.dart';
+import '../rigging/push_channel.dart';
+import '../rigging/keybox.dart';
+import 'portal_booth.dart';
 
 /// One-shot push opt-in promo shown before the portal (only when
 /// `keystore.shouldInvitePermission` is true — first time, or after
@@ -13,23 +13,23 @@ import 'portal_stage.dart';
 ///
 /// Styled to match the Blazebound circus/fire aesthetic. Both Accept
 /// and Skip render as real buttons (see gray_part_pitfalls.md §12).
-class PermissionStage extends StatefulWidget {
-  const PermissionStage({
+class PermissionBooth extends StatefulWidget {
+  const PermissionBooth({
     super.key,
     required this.keystore,
     required this.alerts,
     required this.destinationUrl,
   });
 
-  final BeaconKeystore keystore;
-  final AlertChannel alerts;
+  final KeyBox keystore;
+  final PushChannel alerts;
   final String destinationUrl;
 
   @override
-  State<PermissionStage> createState() => _PermissionStageState();
+  State<PermissionBooth> createState() => _PermissionBoothState();
 }
 
-class _PermissionStageState extends State<PermissionStage> {
+class _PermissionBoothState extends State<PermissionBooth> {
   bool _busy = false;
 
   Future<void> _accept() async {
@@ -51,12 +51,12 @@ class _PermissionStageState extends State<PermissionStage> {
 
   int _snoozeTarget() =>
       DateTime.now().millisecondsSinceEpoch ~/ 1000 +
-      RelayConfig.permissionSnoozeSeconds;
+      MidwayBrief.permissionSnoozeSeconds;
 
   void _forward() {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
-        builder: (_) => PortalStage(
+        builder: (_) => PortalBooth(
           url: widget.destinationUrl,
           keystore: widget.keystore,
           alerts: widget.alerts,
@@ -116,6 +116,7 @@ class _PermissionStageState extends State<PermissionStage> {
                                 label: 'ALLOW',
                                 accent: true,
                                 height: 50,
+                                silent: true,
                                 onTap: _busy ? null : _accept,
                               ),
                             ),
@@ -125,6 +126,7 @@ class _PermissionStageState extends State<PermissionStage> {
                                 label: 'SKIP',
                                 accent: false,
                                 height: 50,
+                                silent: true,
                                 onTap: _busy ? null : _skip,
                               ),
                             ),

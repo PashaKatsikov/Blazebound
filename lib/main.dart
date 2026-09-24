@@ -6,13 +6,13 @@ import 'package:flutter/services.dart';
 
 import 'look.dart';
 import 'profile.dart';
-import 'relay/relay_coordinator.dart';
-import 'relay/wire/alert_channel.dart';
-import 'relay/wire/attribution_pulse.dart';
-import 'relay/wire/beacon_keystore.dart';
-import 'relay/wire/device_signature.dart';
-import 'relay/wire/pulse_probe.dart';
-import 'relay/wire/verdict_call.dart';
+import 'midway/midway_coordinator.dart';
+import 'midway/rigging/push_channel.dart';
+import 'midway/rigging/attribution_feed.dart';
+import 'midway/rigging/keybox.dart';
+import 'midway/rigging/agent_string.dart';
+import 'midway/rigging/reach_probe.dart';
+import 'midway/rigging/ruling_call.dart';
 import 'screens/boot.dart';
 import 'sfx.dart';
 
@@ -26,9 +26,9 @@ import 'sfx.dart';
 //      startup (the coordinator falls back to the native game path).
 //   3. Orientations + immersive chrome — all four orientations so the
 //      relay screens rotate; the game path re-locks to landscape.
-//   4. DeviceSignature.prime — builds the forged User-Agent shared by
-//      the HTTP client (RelayAgent) and the WebView. Must run first.
-//   5. BeaconKeystore.prime + Profile.boot — synchronous state for the
+//   4. AgentString.prime — builds the forged User-Agent shared by
+//      the HTTP client (NetAgent) and the WebView. Must run first.
+//   5. KeyBox.prime + Profile.boot — synchronous state for the
 //      coordinator decision and the native game.
 //   6. Assemble the pipeline, mount inside the game's Vault.
 // ============================================================
@@ -52,9 +52,9 @@ Future<void> main() async {
     statusBarIconBrightness: Brightness.light,
   ));
 
-  await DeviceSignature.prime();
+  await AgentString.prime();
 
-  final BeaconKeystore keystore = BeaconKeystore();
+  final KeyBox keystore = KeyBox();
   await keystore.prime();
 
   final Profile vault = Profile();
@@ -62,12 +62,12 @@ Future<void> main() async {
   Sfx.I.live = vault.sfxOn;
   Sfx.I.shake = vault.rumble;
 
-  final PulseProbe probe = PulseProbe();
-  final AttributionPulse pulse = AttributionPulse();
-  final VerdictCall verdict = VerdictCall(keystore);
-  final AlertChannel alerts = AlertChannel(keystore);
+  final ReachProbe probe = ReachProbe();
+  final AttributionFeed pulse = AttributionFeed();
+  final RulingCall verdict = RulingCall(keystore);
+  final PushChannel alerts = PushChannel(keystore);
 
-  final RelayCoordinator coordinator = RelayCoordinator(
+  final MidwayCoordinator coordinator = MidwayCoordinator(
     keystore: keystore,
     probe: probe,
     pulse: pulse,
@@ -93,9 +93,9 @@ class BlazeApp extends StatelessWidget {
     required this.alerts,
   });
 
-  final RelayCoordinator coordinator;
-  final BeaconKeystore keystore;
-  final AlertChannel alerts;
+  final MidwayCoordinator coordinator;
+  final KeyBox keystore;
+  final PushChannel alerts;
 
   @override
   Widget build(BuildContext context) {

