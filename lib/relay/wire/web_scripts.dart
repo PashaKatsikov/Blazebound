@@ -75,8 +75,14 @@ class WebScripts {
   }
 }
 
-/// Focus + visualViewport handler. Runs on keyboard open and on every
-/// field switch, not only after the first keystroke.
+/// Focus + visualViewport handler.
+///
+/// The host (Flutter) shrinks the WebView from the bottom by the keyboard
+/// height (Android is set to `adjustNothing`, so this is the ONLY shrink and
+/// it is uniform across orientations). That makes `visualViewport` report the
+/// true visible area, so we simply keep the focused field just above its
+/// bottom edge. No spacer and no timer burst — those caused the browser to
+/// over-scroll first and then settle.
 const String _keyboardLift = r'''
 (function(){
   if (window.__bzLiftReady) return;
@@ -103,52 +109,26 @@ const String _keyboardLift = r'''
     }
     window.scrollBy(0, dy);
   }
-  function spacer(kb){
-    // The WebView keeps full height, so a page that fits the viewport is not
-    // scrollable and the field cannot be lifted. Append a bottom spacer equal
-    // to the keyboard height to guarantee scroll room; remove it when closed.
-    var sp = document.getElementById('__bzKbSpacer');
-    if (kb > 0) {
-      if (!sp) {
-        sp = document.createElement('div');
-        sp.id = '__bzKbSpacer';
-        sp.setAttribute('aria-hidden', 'true');
-        sp.style.cssText =
-          'width:1px;margin:0;padding:0;pointer-events:none;flex:none;';
-        (document.body || document.documentElement).appendChild(sp);
-      }
-      sp.style.height = kb + 'px';
-    } else if (sp) {
-      sp.style.height = '0px';
-    }
-  }
-  window.__bzLift = function(){
+  function lift(){
     var el = document.activeElement;
-    if (!field(el)) { spacer(0); return; }
-    var kb = window.__bzKb || 0;
-    spacer(kb);
-    // The host shrinks the WebView by the keyboard height, so visualViewport
-    // already reflects the true visible area — trust it. Only fall back to the
-    // reported keyboard height when visualViewport is unavailable.
+    if (!field(el)) return;
     var vv = window.visualViewport;
-    var visBottom = vv ? (vv.offsetTop + vv.height) : (window.innerHeight - kb);
+    var visBottom = vv ? (vv.offsetTop + vv.height) : window.innerHeight;
     var rect = el.getBoundingClientRect();
-    // Lift so the field sits just above the keyboard.
+    // Position the field just above the keyboard. Bidirectional so the
+    // browser's own over-scroll (field too high) is corrected too.
     var delta = rect.bottom - (visBottom - 12);
-    if (delta > 1) scrollBy(el, delta);
-  };
-  function soon(){
-    window.__bzLift();
-    requestAnimationFrame(window.__bzLift);
-    setTimeout(window.__bzLift, 60);
-    setTimeout(window.__bzLift, 180);
-    setTimeout(window.__bzLift, 360);
-    setTimeout(window.__bzLift, 560);
+    if (delta > 1 || delta < -1) scrollBy(el, delta);
   }
-  document.addEventListener('focusin', function(e){ if (field(e.target)) soon(); }, true);
+  var raf = 0;
+  window.__bzLift = function(){
+    if (raf) cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(function(){ raf = 0; lift(); });
+  };
+  document.addEventListener('focusin', function(e){ if (field(e.target)) window.__bzLift(); }, true);
   if (window.visualViewport) {
-    visualViewport.addEventListener('resize', soon);
-    visualViewport.addEventListener('scroll', soon);
+    visualViewport.addEventListener('resize', window.__bzLift);
+    visualViewport.addEventListener('scroll', window.__bzLift);
   }
 })();
 ''';
