@@ -46,7 +46,7 @@ class WebScripts {
   /// Safe to call on focus, on IME inset changes, and on field switches.
   static Future<void> liftFocusedField(WebViewController controller) async {
     try {
-      await controller.runJavaScript('window.__bzLift&&window.__bzLift()');
+      await controller.runJavaScript('window.__bzApply&&window.__bzApply()');
     } catch (_) {}
   }
 
@@ -59,8 +59,10 @@ class WebScripts {
   ) async {
     try {
       final int h = cssHeight.round();
+      // Set the (settled) keyboard height and lift in ONE step. The WebView is
+      // not resized, so the JS uses this height directly.
       await controller.runJavaScript(
-        'window.__bzKb=$h;window.__bzLift&&window.__bzLift()',
+        'window.__bzKb=$h;window.__bzApply&&window.__bzApply()',
       );
     } catch (_) {}
   }
@@ -87,19 +89,14 @@ const String _keyboardLift = r'''
 (function(){
   if (window.__bzLiftReady) return;
   window.__bzLiftReady = 1;
-  // Stop the browser from auto-adjusting scroll on the viewport shrink; we
-  // position the field ourselves in a single step.
+  // The WebView is NOT resized when the keyboard opens; the host reports the
+  // settled keyboard height in window.__bzKb (0 when closed) and then calls
+  // window.__bzApply() exactly once — so the field moves in a single step.
   try {
     var st = document.createElement('style');
     st.textContent = 'html{overflow-anchor:none!important;scroll-behavior:auto!important;}';
     (document.head || document.documentElement).appendChild(st);
   } catch (e) {}
-  function kbOpen(){
-    var vv = window.visualViewport;
-    if (!vv) return false;
-    var full = document.documentElement.clientHeight || window.innerHeight;
-    return vv.height < full - 40;
-  }
   function field(el){
     if (!el || !el.tagName) return false;
     var t = el.tagName;
@@ -122,30 +119,39 @@ const String _keyboardLift = r'''
     }
     window.scrollBy(0, dy);
   }
-  function lift(){
+  function spacer(kb){
+    // The WebView keeps full height, so a page that fits is not scrollable.
+    // A bottom spacer equal to the keyboard height guarantees scroll room.
+    var sp = document.getElementById('__bzKbSpacer');
+    if (kb > 0) {
+      if (!sp) {
+        sp = document.createElement('div');
+        sp.id = '__bzKbSpacer';
+        sp.setAttribute('aria-hidden', 'true');
+        sp.style.cssText = 'width:1px;margin:0;padding:0;pointer-events:none;flex:none;';
+        (document.body || document.documentElement).appendChild(sp);
+      }
+      sp.style.height = kb + 'px';
+    } else if (sp) {
+      sp.style.height = '0px';
+    }
+  }
+  window.__bzApply = function(){
+    var kb = window.__bzKb || 0;
+    spacer(kb);
     var el = document.activeElement;
     if (!field(el)) return;
-    var vv = window.visualViewport;
-    var visBottom = vv ? (vv.offsetTop + vv.height) : window.innerHeight;
+    if (kb <= 0) return; // closing — leave scroll as is
+    // Visible area = full height minus the keyboard; place the field just
+    // above it, in one step (no resize, so no browser auto-scroll transient).
+    var visBottom = window.innerHeight - kb;
     var rect = el.getBoundingClientRect();
-    // Position the field just above the keyboard. Bidirectional so the
-    // browser's own over-scroll (field too high) is corrected too.
     var delta = rect.bottom - (visBottom - 12);
     if (delta > 1 || delta < -1) scrollBy(el, delta);
-  }
-  // Fire the lift ONCE, only after the viewport has stopped changing — i.e.
-  // after the keyboard is FULLY open. Every resize event during the open
-  // animation just resets the settle timer, so the field moves in one step.
-  var settle = 0;
-  window.__bzLift = function(){
-    if (settle) clearTimeout(settle);
-    settle = setTimeout(function(){ settle = 0; lift(); }, 120);
   };
+  // Switching between fields while the keyboard is already open: re-apply now.
   document.addEventListener('focusin', function(e){
-    if (field(e.target) && kbOpen()) window.__bzLift();
+    if (field(e.target) && (window.__bzKb || 0) > 0) window.__bzApply();
   }, true);
-  if (window.visualViewport) {
-    visualViewport.addEventListener('resize', window.__bzLift);
-  }
 })();
 ''';

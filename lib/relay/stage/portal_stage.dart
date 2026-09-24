@@ -65,10 +65,11 @@ class _PortalStageState extends State<PortalStage>
   // excludes the nav bar so the WebView width never changes when the nav bar
   // appears with the keyboard.
   EdgeInsets _cutout = EdgeInsets.zero;
-  // Keyboard height (dp) from native WindowInsets.ime(). The WebView is
-  // shrunk from the bottom by this amount so its visualViewport actually
-  // reflects the keyboard — the field then sits right above it.
-  double _ime = 0;
+  // Debounce for the keyboard height: the WebView is NOT resized, so we wait
+  // until the IME height stops changing (keyboard fully open) and then lift
+  // the field once via JS. That avoids any mid-animation browser auto-scroll.
+  Timer? _imeSettle;
+  double _imeTarget = -1;
 
   // [FORGE] Rotate the MethodChannel name per project. Keep in
   // sync with MainActivity.kt → `channelName`.
@@ -94,13 +95,19 @@ class _PortalStageState extends State<PortalStage>
           right: (m['cutR'] as num?)?.toDouble() ?? 0,
           bottom: (m['cutB'] as num?)?.toDouble() ?? 0,
         );
-        // Only resize the WebView. The lift is driven purely by the page's
-        // visualViewport 'resize' (fired when this shrink actually lands), so
-        // we never lift against a stale viewport — that caused the two-step.
-        if (cut != _cutout || (ime - _ime).abs() >= 0.5) {
-          setState(() {
-            _cutout = cut;
-            _ime = ime;
+        // The WebView is NOT resized (no mid-animation browser scroll). Wait
+        // for the IME height to settle, then lift the field ONCE. If the
+        // keyboard closed (ime==0), reset immediately.
+        if (cut != _cutout) setState(() => _cutout = cut);
+        if (ime <= 0) {
+          _imeSettle?.cancel();
+          _imeTarget = 0;
+          WebScripts.setKeyboardHeight(_web, 0);
+        } else if ((ime - _imeTarget).abs() >= 0.5) {
+          _imeTarget = ime;
+          _imeSettle?.cancel();
+          _imeSettle = Timer(const Duration(milliseconds: 120), () {
+            WebScripts.setKeyboardHeight(_web, ime);
           });
         }
       }
@@ -308,6 +315,7 @@ class _PortalStageState extends State<PortalStage>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _imeChannel.setMethodCallHandler(null);
+    _imeSettle?.cancel();
     _dropDebounce?.cancel();
     _connSub?.cancel();
     widget.alerts.onIncomingUrl = null;
@@ -331,13 +339,11 @@ class _PortalStageState extends State<PortalStage>
         body: Stack(
           fit: StackFit.expand,
           children: <Widget>[
-            // Camera-cutout padding (from native displayCutout) plus a
-            // bottom inset equal to the keyboard height. The nav bar is never
-            // included, so the WebView width is stable; only the bottom edge
-            // rises to the keyboard top, shrinking the visualViewport so the
-            // focused field ends up right above the keyboard.
+            // Camera-cutout padding only (from native displayCutout). The
+            // WebView keeps full size — the keyboard overlays it and the JS
+            // scrolls the focused field above the keyboard once it is open.
             Padding(
-              padding: _cutout.copyWith(bottom: _cutout.bottom + _ime),
+              padding: _cutout,
               child: WebViewWidget(controller: _web),
             ),
             if (_spinner && !landscape)
