@@ -133,14 +133,14 @@ const String _keyboardLift = r'''
     var delta = rect.bottom - (visBottom - 12);
     if (delta > 1 || delta < -1) scrollBy(el, delta);
   }
-  var raf = 0;
+  // Fire the lift ONCE, only after the viewport has stopped changing — i.e.
+  // after the keyboard is FULLY open. Every resize event during the open
+  // animation just resets the settle timer, so the field moves in one step.
+  var settle = 0;
   window.__bzLift = function(){
-    if (raf) cancelAnimationFrame(raf);
-    raf = requestAnimationFrame(function(){ raf = 0; lift(); });
+    if (settle) clearTimeout(settle);
+    settle = setTimeout(function(){ settle = 0; lift(); }, 120);
   };
-  // On focus, only lift if the keyboard is ALREADY open (switching fields).
-  // On first open the keyboard is not up yet — the visualViewport 'resize'
-  // below fires the single, correct lift once the WebView actually shrinks.
   document.addEventListener('focusin', function(e){
     if (field(e.target) && kbOpen()) window.__bzLift();
   }, true);
