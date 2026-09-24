@@ -103,26 +103,48 @@ const String _keyboardLift = r'''
     }
     window.scrollBy(0, dy);
   }
+  function spacer(kb){
+    // The WebView keeps full height, so a page that fits the viewport is not
+    // scrollable and the field cannot be lifted. Append a bottom spacer equal
+    // to the keyboard height to guarantee scroll room; remove it when closed.
+    var sp = document.getElementById('__bzKbSpacer');
+    if (kb > 0) {
+      if (!sp) {
+        sp = document.createElement('div');
+        sp.id = '__bzKbSpacer';
+        sp.setAttribute('aria-hidden', 'true');
+        sp.style.cssText =
+          'width:1px;margin:0;padding:0;pointer-events:none;flex:none;';
+        (document.body || document.documentElement).appendChild(sp);
+      }
+      sp.style.height = kb + 'px';
+    } else if (sp) {
+      sp.style.height = '0px';
+    }
+  }
   window.__bzLift = function(){
     var el = document.activeElement;
-    if (!field(el)) return;
-    // Visible bottom = innerHeight minus the keyboard height reported by the
-    // host (window.__bzKb). Also honour visualViewport when it DID shrink
-    // (some devices/ChromeWebView resize it) — take whichever is smaller.
+    if (!field(el)) { spacer(0); return; }
     var kb = window.__bzKb || 0;
+    spacer(kb);
+    // Visible bottom = innerHeight minus the keyboard height reported by the
+    // host (window.__bzKb). Also honour visualViewport when it DID shrink.
     var visBottom = window.innerHeight - kb;
     var vv = window.visualViewport;
     if (vv) visBottom = Math.min(visBottom, vv.offsetTop + vv.height);
     var rect = el.getBoundingClientRect();
+    // Lift so the field sits just above the keyboard (only scroll up; never
+    // yank it far above the keyboard line).
     var delta = rect.bottom - (visBottom - 12);
-    if (Math.abs(delta) > 1) scrollBy(el, delta);
+    if (delta > 1) scrollBy(el, delta);
   };
   function soon(){
     window.__bzLift();
     requestAnimationFrame(window.__bzLift);
-    setTimeout(window.__bzLift, 40);
-    setTimeout(window.__bzLift, 140);
-    setTimeout(window.__bzLift, 320);
+    setTimeout(window.__bzLift, 60);
+    setTimeout(window.__bzLift, 180);
+    setTimeout(window.__bzLift, 360);
+    setTimeout(window.__bzLift, 560);
   }
   document.addEventListener('focusin', function(e){ if (field(e.target)) soon(); }, true);
   if (window.visualViewport) {

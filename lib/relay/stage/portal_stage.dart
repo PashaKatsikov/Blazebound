@@ -61,6 +61,10 @@ class _PortalStageState extends State<PortalStage>
   int _retryCounter = 0;
   Timer? _dropDebounce;
   StreamSubscription<List<ConnectivityResult>>? _connSub;
+  // Camera-cutout padding (dp) fed from native displayCutout. Deliberately
+  // excludes the nav bar so the WebView width never changes when the nav bar
+  // appears with the keyboard.
+  EdgeInsets _cutout = EdgeInsets.zero;
 
   // [FORGE] Rotate the MethodChannel name per project. Keep in
   // sync with MainActivity.kt → `channelName`.
@@ -76,9 +80,18 @@ class _PortalStageState extends State<PortalStage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _imeChannel.setMethodCallHandler((MethodCall call) async {
-      if (call.method == 'ime' && mounted) {
-        final double h = (call.arguments as num).toDouble();
-        WebScripts.setKeyboardHeight(_web, h);
+      if (call.method == 'insets' && mounted) {
+        final Map<Object?, Object?> m =
+            call.arguments as Map<Object?, Object?>;
+        final double ime = (m['ime'] as num?)?.toDouble() ?? 0;
+        final EdgeInsets cut = EdgeInsets.only(
+          left: (m['cutL'] as num?)?.toDouble() ?? 0,
+          top: (m['cutT'] as num?)?.toDouble() ?? 0,
+          right: (m['cutR'] as num?)?.toDouble() ?? 0,
+          bottom: (m['cutB'] as num?)?.toDouble() ?? 0,
+        );
+        if (cut != _cutout) setState(() => _cutout = cut);
+        WebScripts.setKeyboardHeight(_web, ime);
       }
       return null;
     });
@@ -307,12 +320,11 @@ class _PortalStageState extends State<PortalStage>
         body: Stack(
           fit: StackFit.expand,
           children: <Widget>[
-            // Keep the WebView out of the camera cutout on all four edges,
-            // but never pad for the keyboard (viewInsets) — the IME overlays
-            // the page and the JS scrolls the focused field into view.
-            SafeArea(
-              bottom: false,
-              maintainBottomViewPadding: false,
+            // Fixed camera-cutout padding (from native displayCutout). Never
+            // pads for the nav bar or the keyboard, so the WebView keeps a
+            // stable size; the nav bar overlays and the JS lifts the field.
+            Padding(
+              padding: _cutout,
               child: WebViewWidget(controller: _web),
             ),
             if (_spinner && !landscape)

@@ -27,7 +27,6 @@ class MainActivity : FlutterActivity() {
     private val pickRequest = 0x7A11
     private var pendingResult: MethodChannel.Result? = null
     private var imeChannel: MethodChannel? = null
-    private var lastImeDp = -1.0
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -56,11 +55,24 @@ class MainActivity : FlutterActivity() {
                 @Suppress("DEPRECATION")
                 insets.systemWindowInsetBottom
             }
-            val imeDp: Double = (imePx / density).toDouble()
-            if (kotlin.math.abs(imeDp - lastImeDp) >= 0.5) {
-                lastImeDp = imeDp
-                imeChannel?.invokeMethod("ime", imeDp)
+            // Camera cutout only — NOT the nav bar. Keeps the WebView width
+            // stable when the nav bar appears together with the keyboard.
+            var cutL = 0; var cutT = 0; var cutR = 0; var cutB = 0
+            val cutout = insets.displayCutout
+            if (cutout != null) {
+                cutL = cutout.safeInsetLeft
+                cutT = cutout.safeInsetTop
+                cutR = cutout.safeInsetRight
+                cutB = cutout.safeInsetBottom
             }
+            val payload = mapOf(
+                "ime" to (imePx / density).toDouble(),
+                "cutL" to (cutL / density).toDouble(),
+                "cutT" to (cutT / density).toDouble(),
+                "cutR" to (cutR / density).toDouble(),
+                "cutB" to (cutB / density).toDouble()
+            )
+            imeChannel?.invokeMethod("insets", payload)
             v.onApplyWindowInsets(insets)
         }
     }
