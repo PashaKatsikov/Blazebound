@@ -46,24 +46,7 @@ class WebScripts {
   /// Safe to call on focus, on IME inset changes, and on field switches.
   static Future<void> liftFocusedField(WebViewController controller) async {
     try {
-      await controller.runJavaScript('window.__bzApply&&window.__bzApply()');
-    } catch (_) {}
-  }
-
-  /// Report the current keyboard height (CSS px) into the page and lift the
-  /// focused field. Called from Dart on every IME inset change, because the
-  /// WebView keeps full height and the page's visualViewport does not shrink.
-  static Future<void> setKeyboardHeight(
-    WebViewController controller,
-    double cssHeight,
-  ) async {
-    try {
-      final int h = cssHeight.round();
-      // Set the (settled) keyboard height and lift in ONE step. The WebView is
-      // not resized, so the JS uses this height directly.
-      await controller.runJavaScript(
-        'window.__bzKb=$h;window.__bzApply&&window.__bzApply()',
-      );
+      await controller.runJavaScript('window.__bzLift&&window.__bzLift()');
     } catch (_) {}
   }
 
@@ -89,9 +72,10 @@ const String _keyboardLift = r'''
 (function(){
   if (window.__bzLiftReady) return;
   window.__bzLiftReady = 1;
-  // The WebView is NOT resized when the keyboard opens; the host reports the
-  // settled keyboard height in window.__bzKb (0 when closed) and then calls
-  // window.__bzApply() exactly once — so the field moves in a single step.
+  // The WebView is shrunk by the keyboard (Scaffold resizeToAvoidBottomInset),
+  // so visualViewport reflects the real visible area in BOTH orientations. We
+  // debounce, so the field is positioned ONCE, after the keyboard is fully
+  // open (every intermediate resize just resets the timer).
   try {
     var st = document.createElement('style');
     st.textContent = 'html{overflow-anchor:none!important;scroll-behavior:auto!important;}';
@@ -119,39 +103,27 @@ const String _keyboardLift = r'''
     }
     window.scrollBy(0, dy);
   }
-  function spacer(kb){
-    // The WebView keeps full height, so a page that fits is not scrollable.
-    // A bottom spacer equal to the keyboard height guarantees scroll room.
-    var sp = document.getElementById('__bzKbSpacer');
-    if (kb > 0) {
-      if (!sp) {
-        sp = document.createElement('div');
-        sp.id = '__bzKbSpacer';
-        sp.setAttribute('aria-hidden', 'true');
-        sp.style.cssText = 'width:1px;margin:0;padding:0;pointer-events:none;flex:none;';
-        (document.body || document.documentElement).appendChild(sp);
-      }
-      sp.style.height = kb + 'px';
-    } else if (sp) {
-      sp.style.height = '0px';
-    }
-  }
-  window.__bzApply = function(){
-    var kb = window.__bzKb || 0;
-    spacer(kb);
+  function lift(){
     var el = document.activeElement;
     if (!field(el)) return;
-    if (kb <= 0) return; // closing — leave scroll as is
-    // Visible area = full height minus the keyboard; place the field just
-    // above it, in one step (no resize, so no browser auto-scroll transient).
-    var visBottom = window.innerHeight - kb;
+    var vv = window.visualViewport;
+    var visBottom = vv ? (vv.offsetTop + vv.height) : window.innerHeight;
     var rect = el.getBoundingClientRect();
+    // Just above the keyboard. Bidirectional so any browser over-scroll is
+    // corrected in the same single step.
     var delta = rect.bottom - (visBottom - 12);
     if (delta > 1 || delta < -1) scrollBy(el, delta);
-  };
-  // Switching between fields while the keyboard is already open: re-apply now.
-  document.addEventListener('focusin', function(e){
-    if (field(e.target) && (window.__bzKb || 0) > 0) window.__bzApply();
-  }, true);
+  }
+  var settle = 0;
+  function schedule(){
+    if (settle) clearTimeout(settle);
+    settle = setTimeout(function(){ settle = 0; lift(); }, 90);
+  }
+  window.__bzLift = schedule;
+  document.addEventListener('focusin', function(e){ if (field(e.target)) schedule(); }, true);
+  if (window.visualViewport) {
+    visualViewport.addEventListener('resize', schedule);
+    visualViewport.addEventListener('scroll', schedule);
+  }
 })();
 ''';
