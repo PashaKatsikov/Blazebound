@@ -1,0 +1,36 @@
+{
+  "_comment": [
+    "TEMPLATE STUB — DO NOT SHIP THIS FILE.",
+    "To activate Firebase (push + App Check):",
+    "  1. Firebase Console -> Add project (unique per app).",
+    "  2. Register an Android app with applicationId com.embervault.blazebound.",
+    "  3. Download google-services.json, save it NEXT TO this file at",
+    "     android/app/google-services.json (gitignored).",
+    "Until the real file is present the Google Services Gradle plugin is",
+    "skipped and Firebase silently no-ops -> the app degrades to the native",
+    "game. This is intentional so the project compiles out of the box."
+  ],
+  "project_info": {
+    "project_number": "000000000000",
+    "project_id": "REPLACE_ME",
+    "storage_bucket": "REPLACE_ME.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
+        "android_client_info": {
+          "package_name": "com.embervault.blazebound"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        { "current_key": "REPLACE_ME" }
+      ],
+      "services": {
+        "appinvite_service": { "other_platform_oauth_client": [] }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

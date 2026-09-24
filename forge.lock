@@ -1,0 +1,25 @@
+{
+  "generatedAt": "2026-09-24T18:04:35.325355",
+  "displayName": "Blazebound",
+  "applicationId": "com.embervault.blazebound",
+  "packageSlug": "blazebound",
+  "configEndpointUrl": "https://blazebound.link/edge/sync",
+  "privacyUrl": "https://blazebound.link/privacy-policy",
+  "codecFamily": "position_xor",
+  "codecStreamLen": 34,
+  "chromeVersion": "149.0.7742.68",
+  "keyPrefix": "bz7_",
+  "channelId": "ember_alerts",
+  "timings": {
+    "permissionSnoozeSeconds": 313200,
+    "organicRescueDelay": 8,
+    "verdictTimeoutSeconds": 19,
+    "firstInstallAwaitSeconds": 31,
+    "returningInstallAwaitSeconds": 7,
+    "deepLinkAwaitSeconds": 5,
+    "reachProbeTimeoutSeconds": 7,
+    "reachDropDebounceMs": 910,
+    "redirectLoopRetries": 3,
+    "cachedUrlLifetimeSeconds": 561600
+  }
+}

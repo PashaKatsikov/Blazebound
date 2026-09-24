@@ -51,3 +51,10 @@ android/key.properties
 release/*.apk
 release/*.aab
 release/symbols/
+
+# Firebase real credentials — only the .example ships
+android/app/google-services.json
+
+# Relay forge — recipe holds plaintext secrets; lockfile is safe to commit
+tool/forge/recipe.json
+/build/debug_info/

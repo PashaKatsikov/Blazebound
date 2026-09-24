@@ -10,5 +10,8 @@
         <item name="android:windowBackground">@color/launch_color</item>
         <item name="android:navigationBarColor">@color/launch_color</item>
         <item name="android:statusBarColor">@color/launch_color</item>
+        <!-- Report the display-cutout inset so the WebView portal can keep a
+             safe zone around the camera notch (see gray_part_pitfalls.md §14). -->
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
     </style>
 </resources>
