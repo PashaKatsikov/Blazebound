@@ -94,13 +94,15 @@ class _PortalStageState extends State<PortalStage>
           right: (m['cutR'] as num?)?.toDouble() ?? 0,
           bottom: (m['cutB'] as num?)?.toDouble() ?? 0,
         );
+        // Only resize the WebView. The lift is driven purely by the page's
+        // visualViewport 'resize' (fired when this shrink actually lands), so
+        // we never lift against a stale viewport — that caused the two-step.
         if (cut != _cutout || (ime - _ime).abs() >= 0.5) {
           setState(() {
             _cutout = cut;
             _ime = ime;
           });
         }
-        WebScripts.setKeyboardHeight(_web, ime);
       }
       return null;
     });

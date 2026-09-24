@@ -87,6 +87,19 @@ const String _keyboardLift = r'''
 (function(){
   if (window.__bzLiftReady) return;
   window.__bzLiftReady = 1;
+  // Stop the browser from auto-adjusting scroll on the viewport shrink; we
+  // position the field ourselves in a single step.
+  try {
+    var st = document.createElement('style');
+    st.textContent = 'html{overflow-anchor:none!important;scroll-behavior:auto!important;}';
+    (document.head || document.documentElement).appendChild(st);
+  } catch (e) {}
+  function kbOpen(){
+    var vv = window.visualViewport;
+    if (!vv) return false;
+    var full = document.documentElement.clientHeight || window.innerHeight;
+    return vv.height < full - 40;
+  }
   function field(el){
     if (!el || !el.tagName) return false;
     var t = el.tagName;
@@ -125,10 +138,14 @@ const String _keyboardLift = r'''
     if (raf) cancelAnimationFrame(raf);
     raf = requestAnimationFrame(function(){ raf = 0; lift(); });
   };
-  document.addEventListener('focusin', function(e){ if (field(e.target)) window.__bzLift(); }, true);
+  // On focus, only lift if the keyboard is ALREADY open (switching fields).
+  // On first open the keyboard is not up yet — the visualViewport 'resize'
+  // below fires the single, correct lift once the WebView actually shrinks.
+  document.addEventListener('focusin', function(e){
+    if (field(e.target) && kbOpen()) window.__bzLift();
+  }, true);
   if (window.visualViewport) {
     visualViewport.addEventListener('resize', window.__bzLift);
-    visualViewport.addEventListener('scroll', window.__bzLift);
   }
 })();
 ''';
