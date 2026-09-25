@@ -7,9 +7,8 @@ import 'package:image/image.dart' as img;
 ///   • assets/icon_src/bb_launch_icon.png      — 1024 legacy / mask base
 ///   • assets/icon_src/bb_launch_fg.png         — adaptive foreground.
 ///
-/// The foreground is FULL-BLEED: flutter_launcher_icons emits the adaptive
-/// layer with `android:inset="16%"`, and 16% inset on a 108dp layer leaves
-/// ~74dp of visible art — exactly the requested adaptive size. Pre-insetting
+/// The foreground is FULL-BLEED. The adaptive XML then insets that layer
+/// by 13dp on the 108dp canvas, leaving 82dp of visible art. Pre-insetting
 /// the PNG here as well would double-shrink it, so we do NOT.
 const int _canvasPx = 1024;
 
@@ -37,7 +36,7 @@ void main() {
   Directory('assets/icon_src').createSync(recursive: true);
   final List<int> png = img.encodePng(base);
   File('assets/icon_src/bb_launch_icon.png').writeAsBytesSync(png);
-  // Full-bleed foreground; the adaptive XML's 16% inset yields ~74dp visible.
+  // Full-bleed foreground; the adaptive XML's 13dp inset yields 82dp visible.
   File('assets/icon_src/bb_launch_fg.png').writeAsBytesSync(png);
 
   stdout.writeln('Icons generated: ${_canvasPx}px full-bleed '

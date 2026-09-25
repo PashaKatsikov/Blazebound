@@ -53,4 +53,7 @@ flutter_launcher_icons:
   image_path: "assets/icon_src/bb_launch_icon.png"
   adaptive_icon_background: "#12040A"
   adaptive_icon_foreground: "assets/icon_src/bb_launch_fg.png"
+  # Generator only emits an integer percent. 12% is ~82dp; the adaptive
+  # XML is then pinned to inset 13dp so the art is exactly 82dp of 108dp.
+  adaptive_icon_foreground_inset: 12
   remove_alpha_ios: true
