@@ -1,7 +1,7 @@
 name: blazebound
 description: "Fire Recall arena action. Throw blazing coins, recall them through the circus, and topple the Inferno Ringmaster."
 publish_to: "none"
-version: 1.0.1+2
+version: 1.0.1+3
 
 environment:
   sdk: ^3.12.2
@@ -53,7 +53,7 @@ flutter_launcher_icons:
   image_path: "assets/icon_src/bb_launch_icon.png"
   adaptive_icon_background: "#12040A"
   adaptive_icon_foreground: "assets/icon_src/bb_launch_fg.png"
-  # Generator only emits an integer percent. 12% is ~82dp; the adaptive
-  # XML is then pinned to inset 13dp so the art is exactly 82dp of 108dp.
-  adaptive_icon_foreground_inset: 12
+  # 0 keeps the artwork full-bleed on the 108dp canvas. Any inset shows
+  # the background color as an empty ring inside the launcher mask.
+  adaptive_icon_foreground_inset: 0
   remove_alpha_ios: true
