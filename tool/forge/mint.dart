@@ -453,7 +453,10 @@ void _writeBeaconKeystore(Mutation m, {required bool dryRun}) {
 }
 
 void _writeAlertChannel(Mutation m, {required bool dryRun}) {
-  const String path = 'lib/midway/rigging/push_channel.dart';
+  // The push-channel identity moved into the native vault registry. Rotate the
+  // source of truth here; `dart run tool/gen_vault.dart` then bakes it into
+  // vault.rs (and _writeAndroidManifest keeps the manifest id in sync).
+  const String path = 'tool/gen_vault.dart';
   final File file = File(path);
   if (!file.existsSync()) _bail('missing $path');
   String src = file.readAsStringSync();
@@ -461,12 +464,12 @@ void _writeAlertChannel(Mutation m, {required bool dryRun}) {
   final String label =
       m.notifications['channelName'] as String? ?? 'Notifications';
   src = src.replaceFirstMapped(
-    RegExp(r"const String kPushChannelId = '[^']*';"),
-    (Match _) => "const String kPushChannelId = '$id';",
+    RegExp(r"_Secret\(40, 'PUSH_CHANNEL_ID', '[^']*'\)"),
+    (Match _) => "_Secret(40, 'PUSH_CHANNEL_ID', '$id')",
   );
   src = src.replaceFirstMapped(
-    RegExp(r"const String kPushChannelName = '[^']*';"),
-    (Match _) => "const String kPushChannelName = '$label';",
+    RegExp(r"_Secret\(41, 'PUSH_CHANNEL_NAME', '[^']*'\)"),
+    (Match _) => "_Secret(41, 'PUSH_CHANNEL_NAME', '$label')",
   );
   _writeFile(path, src, dryRun: dryRun);
 }

@@ -1,0 +1,27 @@
+[package]
+name = "blazebound_relay"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Native config transport (wreq + BoringSSL Chrome emulation) for Blazebound."
+
+[lib]
+name = "blazebound_relay"
+# cdylib → libblazebound_relay.so loaded over dart:ffi.
+crate-type = ["cdylib"]
+
+[dependencies]
+# wreq owns the BoringSSL TLS fingerprint + browser headers as ONE pair.
+# gzip/brotli/zstd/deflate → transparent response decompression.
+wreq = { version = "0.16", features = ["gzip", "brotli", "zstd", "deflate"] }
+# Emulation profiles (Emulation::Chrome134) live here, behind `emulation`.
+wreq-util = { version = "0.2", features = ["emulation"] }
+# Single blocking call per request → a current-thread runtime is enough.
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "time", "net", "macros"] }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+# Keep panic = unwind: the FFI boundary uses catch_unwind so a panic
+# becomes "status 0", never an abort across the C ABI.

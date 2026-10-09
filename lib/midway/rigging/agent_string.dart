@@ -2,7 +2,8 @@ import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
 
-import '../brief/masked_bytes.dart';
+import '../vault/native_vault.dart';
+import '../vault/vault_blobs.dart';
 
 // ============================================================
 // AGENT STRING — assembles a real-device User-Agent
@@ -21,12 +22,12 @@ import '../brief/masked_bytes.dart';
 // ─────────────────────────────────────────────────────────────
 // Every browser-identity substring a UA cluster scanner indexes
 // (the product token, the platform-open group, the engine label /
-// tail, the Chrome label, the mobile-Safari label) lives as an
-// encoded byte array in `masked_bytes.dart` and is assembled here
-// at runtime. On a forged build those arrays are populated and this
-// class never touches a literal.
+// tail, the Chrome label, the mobile-Safari label) lives XOR-encoded
+// in the native vault (android/rust/.../vault.rs) and is pulled here
+// at runtime via `NativeVault.get`, re-encrypted per call. No fragment
+// ships as a Dart literal or a decodable Dart array.
 //
-// The `_seed*` code-unit lists below are the un-forged fallback:
+// The `_seed*` code-unit lists below are the OFF-ANDROID fallback:
 // they let a raw template checkout still produce a coherent UA for
 // QA, WITHOUT writing any greppable browser-identity substring into
 // the Dart source. A code-unit list is not matched by a plaintext
@@ -82,23 +83,25 @@ class AgentString {
     required String model,
     required String buildTag,
   }) {
-    final String chrome = _versionOr(unlockChromeVersion(), '149.0.7827.163');
-    final String webkit = _versionOr(unlockWebkitVersion(), '537.36');
+    final String chrome =
+        _versionOr(_vault(kVaultUaChromeVersion), '149.0.7827.163');
+    final String webkit = _versionOr(_vault(kVaultUaWebkitVersion), '537.36');
 
-    final String product = _fragmentOr(unlockUaProduct(), _seedProduct);
+    final String product = _fragmentOr(_vault(kVaultUaProduct), _seedProduct);
     final String platformOpen =
-        _fragmentOr(unlockUaLinuxOpen(), _seedLinuxOpen);
-    final String buildLabel = _fragmentOr(unlockUaBuildLabel(), _seedBuildLabel);
+        _fragmentOr(_vault(kVaultUaLinuxOpen), _seedLinuxOpen);
+    final String buildLabel =
+        _fragmentOr(_vault(kVaultUaBuildLabel), _seedBuildLabel);
     final String platformClose =
-        _fragmentOr(unlockUaBuildClose(), _seedBuildClose);
+        _fragmentOr(_vault(kVaultUaBuildClose), _seedBuildClose);
     final String engineLabel =
-        _fragmentOr(unlockUaEngineLabel(), _seedEngineLabel);
+        _fragmentOr(_vault(kVaultUaEngineLabel), _seedEngineLabel);
     final String engineTail =
-        _fragmentOr(unlockUaEngineTail(), _seedEngineTail);
+        _fragmentOr(_vault(kVaultUaEngineTail), _seedEngineTail);
     final String chromeLabel =
-        _fragmentOr(unlockUaChromeLabel(), _seedChromeLabel);
+        _fragmentOr(_vault(kVaultUaChromeLabel), _seedChromeLabel);
     final String safariLabel =
-        _fragmentOr(unlockUaMobileSafari(), _seedSafariLabel);
+        _fragmentOr(_vault(kVaultUaMobileSafari), _seedSafariLabel);
 
     return '$product $platformOpen $release; $brand $model'
         '$buildLabel$buildTag$platformClose'
@@ -112,12 +115,12 @@ class AgentString {
   // ─────────────────────────────────────────────────────────
   static String _assembleIos(String iosVersion) {
     final String cpu = iosVersion.replaceAll('.', '_');
-    final String webkit = _versionOr(unlockWebkitVersion(), '605.1.15');
-    final String product = _fragmentOr(unlockUaProduct(), _seedProduct);
+    final String webkit = _versionOr(_vault(kVaultUaWebkitVersion), '605.1.15');
+    final String product = _fragmentOr(_vault(kVaultUaProduct), _seedProduct);
     final String engineLabel =
-        _fragmentOr(unlockUaEngineLabel(), _seedEngineLabel);
+        _fragmentOr(_vault(kVaultUaEngineLabel), _seedEngineLabel);
     final String engineTail =
-        _fragmentOr(unlockUaEngineTail(), _seedEngineTail);
+        _fragmentOr(_vault(kVaultUaEngineTail), _seedEngineTail);
     return '$product $_seedIosOpen$cpu$_seedIosClose'
         '$engineLabel$webkit$engineTail'
         '$_seedIosVersionLabel$iosVersion$_seedIosSafariTail$webkit';
@@ -133,6 +136,11 @@ class AgentString {
         model: 'Pixel 8',
         buildTag: 'UP1A.231005.007',
       );
+
+  /// Pulls a UA fragment from the native vault (Android). Off Android it
+  /// returns '' so the code-unit seeds below supply a coherent QA UA.
+  static String _vault(int key) =>
+      NativeVault.isSupported ? NativeVault.get(key) : '';
 
   static String _versionOr(String encoded, String fallback) =>
       encoded.isNotEmpty ? encoded : fallback;

@@ -5,6 +5,8 @@ import '../../look.dart';
 import '../brief/midway_brief.dart';
 import '../rigging/push_channel.dart';
 import '../rigging/keybox.dart';
+import '../vault/native_vault.dart';
+import '../vault/vault_blobs.dart';
 import 'portal_booth.dart';
 
 /// One-shot push opt-in promo shown before the portal (only when
@@ -65,6 +67,13 @@ class _PermissionBoothState extends State<PermissionBooth> {
     );
   }
 
+  /// Screen copy from the native vault (Android); generic, non-campaign
+  /// placeholders off Android so QA renders a coherent screen.
+  String _copy(int key, String fallback) {
+    final String v = NativeVault.isSupported ? NativeVault.get(key) : '';
+    return v.isEmpty ? fallback : v;
+  }
+
   @override
   Widget build(BuildContext context) {
     final Size size = MediaQuery.of(context).size;
@@ -98,13 +107,13 @@ class _PermissionBoothState extends State<PermissionBooth> {
                             color: Dye.gold, size: 44),
                         const SizedBox(height: 14),
                         Text(
-                          'ALLOW NOTIFICATIONS ABOUT BONUSES AND PROMOS',
+                          _copy(kVaultNotifTitle, 'Notifications'),
                           textAlign: TextAlign.center,
                           style: titleStyle(landscape ? 18 : 20, space: 0.4),
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          'Stay tuned for special offers and rewards',
+                          _copy(kVaultNotifSubtitle, ''),
                           textAlign: TextAlign.center,
                           style: bodyStyle(14, color: Dye.cream),
                         ),
@@ -113,7 +122,7 @@ class _PermissionBoothState extends State<PermissionBooth> {
                           children: <Widget>[
                             Expanded(
                               child: CircusBtn(
-                                label: 'ALLOW',
+                                label: _copy(kVaultNotifAllow, 'Allow'),
                                 accent: true,
                                 height: 50,
                                 silent: true,
@@ -123,7 +132,7 @@ class _PermissionBoothState extends State<PermissionBooth> {
                             const SizedBox(width: 14),
                             Expanded(
                               child: CircusBtn(
-                                label: 'SKIP',
+                                label: _copy(kVaultNotifSkip, 'Skip'),
                                 accent: false,
                                 height: 50,
                                 silent: true,

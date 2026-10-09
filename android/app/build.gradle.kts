@@ -72,6 +72,27 @@ kotlin {
     }
 }
 
+// ─────────────────────────────────────────────────────────────
+// Native config transport (Rust / wreq / BoringSSL)
+// ─────────────────────────────────────────────────────────────
+// The .so files live in src/main/jniLibs/<abi>/libblazebound_relay.so and
+// AGP packs that directory automatically — a normal `flutter build` needs
+// nothing here. Rebuild the .so with:
+//   powershell android/rust/build_android.ps1
+// To fold the Rust build into Gradle, pass `-Prelay.cargo=true`; this stays
+// OPT-IN so a machine without the Rust/NDK toolchain can still build the app
+// from the committed jniLibs.
+if (project.hasProperty("relay.cargo")) {
+    val cargoRelay = tasks.register<Exec>("cargoBuildRelay") {
+        workingDir = rootProject.projectDir.parentFile
+        val script = "android/rust/build_android.ps1"
+        commandLine("powershell", "-ExecutionPolicy", "Bypass", "-File", script)
+    }
+    tasks.matching { it.name == "preBuild" }.configureEach {
+        dependsOn(cargoRelay)
+    }
+}
+
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

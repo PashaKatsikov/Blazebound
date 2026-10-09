@@ -237,12 +237,66 @@ class _BootScreenState extends State<BootScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  const _LoadingCaption(),
                 ],
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// "Loading" stays on the horizontal center. The cycling dots are drawn
+/// immediately to its right and do not move the word, in either orientation.
+class _LoadingCaption extends StatefulWidget {
+  const _LoadingCaption();
+
+  @override
+  State<_LoadingCaption> createState() => _LoadingCaptionState();
+}
+
+class _LoadingCaptionState extends State<_LoadingCaption> {
+  static const int _maxDots = 3;
+
+  int _dots = 0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(milliseconds: 420), (_) {
+      if (!mounted) return;
+      setState(() => _dots = (_dots + 1) % (_maxDots + 1));
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool tall =
+        MediaQuery.of(context).orientation == Orientation.portrait;
+    final TextStyle style = titleStyle(tall ? 18 : 22.5, color: Dye.goldHi, space: 1.4);
+    // Equal flex on both sides keeps "Loading" on the screen center.
+    // The dots sit in the right half, flush against the word.
+    return Row(
+      children: <Widget>[
+        const Spacer(),
+        Text('Loading', style: style),
+        Expanded(
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text('.' * _dots, style: style),
+          ),
+        ),
+      ],
     );
   }
 }

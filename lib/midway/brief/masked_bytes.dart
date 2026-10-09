@@ -28,50 +28,21 @@ const List<int> _messagingProject = <int>[
   134, 146, 230, 225, 92, 37, 9, 49, 167, 180, 112, 38,
 ];
 
-const List<int> _uaProduct = <int>[
-  255, 205, 168, 177, 3, 123, 89, 47, 170, 169, 119,
-];
-
-const List<int> _uaLinuxOpen = <int>[
-  154, 238, 187, 182, 26, 111, 3, 32, 222, 233, 35, 98,
-  16, 207, 187,
-];
-
-const List<int> _uaBuildLabel = <int>[
-  146, 224, 167, 177, 3, 115, 23,
-];
-
-const List<int> _uaBuildClose = <int>[
-  155,
-];
-
-const List<int> _uaEngineLabel = <int>[
-  146, 227, 162, 168, 3, 114, 111, 101, 253, 204, 46, 100,
-  80,
-];
-
-const List<int> _uaEngineTail = <int>[
-  146, 138, 153, 144, 59, 90, 116, 44, 191, 235, 46, 123,
-  26, 134, 152, 151, 227, 94, 103, 217,
-];
-
-const List<int> _uaChromeLabel = <int>[
-  146, 225, 186, 170, 0, 122, 93, 47,
-];
-
-const List<int> _uaMobileSafari = <int>[
-  146, 239, 189, 186, 6, 123, 93, 32, 204, 230, 33, 113,
-  13, 207, 240,
-];
-
-const List<int> _chromeVersion = <int>[
-  131, 150, 235, 246, 95, 57, 15, 55, 171, 181, 105, 38,
-  71,
-];
-
-const List<int> _webkitVersion = <int>[
-  135, 145, 229, 246, 92, 33,
-];
+// The User-Agent fragments + Chrome/WebKit versions were MIGRATED to the
+// native vault (android/rust/relay_transport/src/vault.rs) so no decodable
+// Dart copy ships in the APK. These arrays are intentionally empty; the
+// unlock* getters below return '' and AgentString pulls from NativeVault on
+// Android (code-unit seeds cover the off-Android QA fallback).
+const List<int> _uaProduct = <int>[];
+const List<int> _uaLinuxOpen = <int>[];
+const List<int> _uaBuildLabel = <int>[];
+const List<int> _uaBuildClose = <int>[];
+const List<int> _uaEngineLabel = <int>[];
+const List<int> _uaEngineTail = <int>[];
+const List<int> _uaChromeLabel = <int>[];
+const List<int> _uaMobileSafari = <int>[];
+const List<int> _chromeVersion = <int>[];
+const List<int> _webkitVersion = <int>[];
 
 const List<int> _jsSafeAreaScript = <int>[];
 

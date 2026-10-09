@@ -8,6 +8,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'keybox.dart';
 import 'net_agent.dart';
+import '../vault/native_vault.dart';
+import '../vault/vault_blobs.dart';
 
 // ============================================================
 // PUSH CHANNEL — Firebase Messaging + local notifications
@@ -21,13 +23,25 @@ import 'net_agent.dart';
 // [FORGE] The Android notification channel id must match the
 // `default_notification_channel_id` in AndroidManifest.xml. Rotate
 // per project — a shared id creates an obvious cross-app cluster.
+//
+// The channel identity, description and small-icon name are no longer Dart
+// literals: on Android they are decrypted per call from the native vault
+// (see lib/midway/vault). The manifest still carries the channel id in the
+// clear (Android requires a resource value there) — the id below MUST equal
+// it. Off Android the generic fallbacks keep QA functional.
 // ============================================================
 
-// [FORGE] Rotate per project. Must match the AndroidManifest value.
-const String kPushChannelId = 'ember_alerts';
-// [FORGE] Rotate per project. User-visible in Android system settings.
-const String kPushChannelName = 'Offers & Rewards';
-const String _smallIcon = '@drawable/ic_notification';
+String _vaultOr(int key, String fallback) {
+  final String v = NativeVault.isSupported ? NativeVault.get(key) : '';
+  return v.isEmpty ? fallback : v;
+}
+
+// Must match AndroidManifest's default_notification_channel_id.
+String get _channelId => _vaultOr(kVaultPushChannelId, 'app_alerts');
+// User-visible in Android system settings.
+String get _channelName => _vaultOr(kVaultPushChannelName, 'Notifications');
+String get _channelDesc => _vaultOr(kVaultPushChannelDesc, '');
+String get _smallIcon => _vaultOr(kVaultPushSmallIcon, '@drawable/ic_notification');
 
 @pragma('vm:entry-point')
 Future<void> _bgHandler(RemoteMessage message) async {
@@ -94,7 +108,7 @@ class PushChannel {
   }
 
   Future<void> _setupLocal() async {
-    const AndroidInitializationSettings android =
+    final AndroidInitializationSettings android =
         AndroidInitializationSettings(_smallIcon);
     const DarwinInitializationSettings ios = DarwinInitializationSettings(
       requestAlertPermission: false,
@@ -103,7 +117,7 @@ class PushChannel {
     );
 
     await _local.initialize(
-      settings: const InitializationSettings(android: android, iOS: ios),
+      settings: InitializationSettings(android: android, iOS: ios),
       onDidReceiveNotificationResponse: (NotificationResponse r) {
         final String? payload = r.payload;
         if (payload == null || payload.isEmpty) return;
@@ -121,10 +135,10 @@ class PushChannel {
           _local.resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>();
       await androidPlugin?.createNotificationChannel(
-        const AndroidNotificationChannel(
-          kPushChannelId,
-          kPushChannelName,
-          description: 'Updates and offers',
+        AndroidNotificationChannel(
+          _channelId,
+          _channelName,
+          description: _channelDesc,
           importance: Importance.high,
         ),
       );
@@ -154,17 +168,21 @@ class PushChannel {
     final RemoteNotification? n = message.notification;
     if (n == null || !Platform.isAndroid) return;
 
+    final String channelId = _channelId;
+    final String channelName = _channelName;
+    final String icon = _smallIcon;
+
     AndroidNotificationDetails? details;
     final String? imageUrl = n.android?.imageUrl;
     if (imageUrl != null && imageUrl.isNotEmpty) {
       final Uint8List? bytes = await _fetchImage(imageUrl);
       if (bytes != null) {
         details = AndroidNotificationDetails(
-          kPushChannelId,
-          kPushChannelName,
+          channelId,
+          channelName,
           importance: Importance.high,
           priority: Priority.high,
-          icon: _smallIcon,
+          icon: icon,
           styleInformation: BigPictureStyleInformation(
             ByteArrayAndroidBitmap(bytes),
             largeIcon:
@@ -174,12 +192,12 @@ class PushChannel {
       }
     }
 
-    details ??= const AndroidNotificationDetails(
-      kPushChannelId,
-      kPushChannelName,
+    details ??= AndroidNotificationDetails(
+      channelId,
+      channelName,
       importance: Importance.high,
       priority: Priority.high,
-      icon: _smallIcon,
+      icon: icon,
     );
 
     await _local.show(

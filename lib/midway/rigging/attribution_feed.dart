@@ -6,8 +6,6 @@ import 'package:appsflyer_sdk/appsflyer_sdk.dart';
 import 'package:flutter/foundation.dart';
 
 import '../brief/midway_brief.dart';
-import '../brief/masked_bytes.dart';
-import 'net_agent.dart';
 
 // ============================================================
 // ATTRIBUTION FEED — AppsFlyer install + deep-link collector
@@ -17,13 +15,9 @@ import 'net_agent.dart';
 //   2. onDeepLinking            — UDL / OneLink deep-link click
 //   3. onAppOpenAttribution     — returning-user attribution
 //
-// [ORGANIC RESCUE]  AppsFlyer occasionally reports
-// `af_status: "Organic"` on the FIRST callback for genuinely paid
-// installs (SDK timing bug). When that happens we wait
-// `organicRescueDelay` seconds and re-query the GCD endpoint to
-// pull the real attribution. GCD-rescue result overrides the
-// initial Organic payload; if GCD fails, we keep the original
-// (Organic → user lands in the game — that's the safe branch).
+// An Organic callback is accepted as-is. A second GCD query after
+// Organic used to hold the first launch for organicRescueDelay plus
+// a network round-trip before the native game could open.
 //
 // [SHORT-CIRCUIT]  When no dev key is packed yet (fresh template),
 // the SDK never boots and the futures complete immediately with an
@@ -68,19 +62,10 @@ class AttributionFeed {
     final AppsflyerSdk sdk = AppsflyerSdk(options);
     _sdk = sdk;
 
-    sdk.onInstallConversionData((dynamic raw) async {
+    sdk.onInstallConversionData((dynamic raw) {
       final Map<String, dynamic> payload = _unpackMap(raw);
-      final String? status = payload['af_status']?.toString();
-      if (status == 'Organic') {
-        await Future<void>.delayed(
-          Duration(seconds: MidwayBrief.organicRescueDelay),
-        );
-        final Map<String, dynamic>? rescued = await _gcdRescue();
-        _installPayload = rescued ?? payload;
-      } else {
-        _installPayload = payload;
-      }
-      _resolveInstall(_installPayload ?? <String, dynamic>{});
+      _installPayload = payload;
+      _resolveInstall(payload);
     });
 
     sdk.onAppOpenAttribution((dynamic raw) {
@@ -168,30 +153,6 @@ class AttributionFeed {
       return true;
     }());
     return body;
-  }
-
-  Future<Map<String, dynamic>?> _gcdRescue() async {
-    try {
-      final String? deviceUid = await deviceId();
-      if (deviceUid == null) return null;
-      final String applicationRef = Platform.isIOS
-          ? MidwayBrief.storeNumericId
-          : MidwayBrief.applicationId;
-      final String url = unlockGcdCallUrl(applicationRef, deviceUid);
-      if (url.isEmpty) return null;
-
-      final dynamic response = await netAgent.get(
-        Uri.parse(url),
-        headers: <String, String>{
-          'authorization': 'Bearer ${MidwayBrief.attributionKey}',
-        },
-      ).timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
-      }
-    } catch (_) {}
-    return null;
   }
 
   void _resolveInstall(Map<String, dynamic> data) {

@@ -51,7 +51,8 @@ abstract final class MidwayBrief {
   /// any sibling project (taken offsets: 97, 147, 211).
   static const int permissionSnoozeSeconds = 3 * 24 * 60 * 60 - 83;
 
-  /// Delay before rescuing an `af_status: "Organic"` first callback.
+  /// Forge-rotated leftover. The boot path no longer waits on a second
+  /// AppsFlyer query after an Organic callback.
   /// Range: 4..12 seconds.
   static const int organicRescueDelay = 12;
 
